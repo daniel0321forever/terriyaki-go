@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
@@ -113,9 +112,11 @@ func UpdateGrindAPI(c *gin.Context) {
 
 	duration, _ := strconv.Atoi(c.PostForm("duration"))
 	budget, _ := strconv.Atoi(c.PostForm("budget"))
-	participants := strings.Split(c.PostForm("participants"), ",")
 
-	grind, err := models.UpdateGrind(grindID, int32(duration), int32(budget), participants)
+	grind, err := models.UpdateGrind(grindID, map[string]any{
+		"duration": duration,
+		"budget":   budget,
+	})
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{

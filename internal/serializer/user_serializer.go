@@ -1,9 +1,6 @@
 package serializer
 
 import (
-	"time"
-
-	"github.com/daniel0321forever/terriyaki-go/internal/database"
 	"github.com/daniel0321forever/terriyaki-go/internal/models"
 	"github.com/gin-gonic/gin"
 )
@@ -29,31 +26,10 @@ func SerializeUser(user *models.User) gin.H {
  * @return the serialized user as a grind participant
  */
 func SerializeUserAsGrindParticipant(user *models.User, grind *models.Grind) gin.H {
-	missedTask := 0
-	totalPenalty := 0
-
-	tasks := []models.Task{}
-	result := database.Db.Where("user_id = ? AND grind_id = ?", user.ID, grind.ID).Order("date ASC").Find(&tasks)
-	if result.Error != nil {
+	participateRecord, err := models.GetParticipateRecordByUserIDAndGrindID(user.ID, grind.ID)
+	if err != nil {
 		return gin.H{}
 	}
 
-	for _, task := range tasks {
-		if !task.Completed {
-			missedTask++
-			totalPenalty += int(grind.Budget / grind.Duration)
-		}
-		if task.Date.After(time.Now().UTC()) {
-			break
-		}
-	}
-
-	return gin.H{
-		"id":           user.ID,
-		"username":     user.Username,
-		"email":        user.Email,
-		"avatar":       user.Avatar,
-		"missedDays":   missedTask,
-		"totalPenalty": totalPenalty,
-	}
+	return SerializeParticipateRecord(participateRecord)
 }

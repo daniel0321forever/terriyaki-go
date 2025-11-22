@@ -14,7 +14,7 @@ type Grind struct {
 	gorm.Model
 	ID           string    `json:"id" gorm:"primaryKey"`
 	Duration     int32     `json:"duration" gorm:"not null"` // stored in days
-	Participants []User    `json:"participants" gorm:"many2many:grind_participants;foreignKey:ID;references:ID"`
+	Participants []User    `json:"participants" gorm:"many2many:participate_records;foreignKey:ID;references:ID"`
 	Budget       int32     `json:"budget" gorm:"not null"`
 	Tasks        []Task    `json:"tasks" gorm:"not null"`
 	StartDate    time.Time `json:"start_date" gorm:"not null"`
@@ -61,6 +61,10 @@ func CreateGrind(
 	}
 
 	for _, user := range participantsUsers {
+		_, err := CreateParticipateRecord(user.ID, grind.ID)
+		if err != nil {
+			return nil, err
+		}
 		for i := range duration {
 			_, err := CreateTask(
 				"Task "+strconv.Itoa(i+1),
@@ -128,38 +132,45 @@ func GetOngoingGrindByUserID(userID string) (*Grind, error) {
  * @param id - the id of the grind
  * @param duration - the duration of the grind in days
  * @param budget - the budget of the grind in dollars
- * @param participants - the participants of the grind
  * @return the updated grind
  */
-func UpdateGrind(id string, duration int32, budget int32, participants []string) (*Grind, error) {
-	participantsUsers := []User{}
-	for _, participant := range participants {
-		user, err := GetUserByEmail(participant)
-		if err != nil {
-			return nil, err
-		}
-		participantsUsers = append(participantsUsers, *user)
-	}
-	result := database.Db.Model(&Grind{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"duration":     duration,
-		"budget":       budget,
-		"participants": participantsUsers,
-	})
+func UpdateGrind(id string, updates map[string]any) (*Grind, error) {
+
+	var grind Grind
+	result := database.Db.Model(&grind).Where("id = ?", id).First(&grind).Updates(updates)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return &Grind{}, nil
+	return &grind, nil
 }
 
 func AddParticipantToGrind(grindID string, participantID string) error {
-	result := database.Db.Model(&Grind{}).Where("id = ?", grindID).Association("Participants").Append(&User{ID: participantID})
-	return errors.New(result.Error())
+	participateRecord, _ := GetParticipateRecordByUserIDAndGrindID(participantID, grindID)
+	if participateRecord != nil {
+		return errors.New("PARTICIPANT_EXISTS")
+	}
 
+	_, err := CreateParticipateRecord(participantID, grindID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func RemoveParticipantFromGrind(grindID string, participantID string) error {
-	result := database.Db.Model(&Grind{}).Where("id = ?", grindID).Association("Participants").Delete(&User{ID: participantID})
-	return errors.New(result.Error())
+	participateRecord, _ := GetParticipateRecordByUserIDAndGrindID(participantID, grindID)
+	if participateRecord == nil {
+		return errors.New("PARTICIPANT_NOT_FOUND")
+	}
+
+	result := database.Db.Unscoped().Delete(&participateRecord)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
 }
 
 func GetAllGrinds() ([]Grind, error) {

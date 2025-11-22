@@ -1,12 +1,10 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/daniel0321forever/terriyaki-go/api"
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
-	"github.com/daniel0321forever/terriyaki-go/internal/models"
+	"github.com/daniel0321forever/terriyaki-go/internal/migrate"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -19,15 +17,15 @@ func main() {
 	router.Use(cors.New(config))
 
 	// connect to database
-	db, err := database.Connect()
+	_, err := database.Connect()
 	if err != nil {
-		fmt.Println("Error connecting to database: ", err)
-		return
+		panic(err)
 	}
 
-	db.AutoMigrate(&models.User{})
-	db.AutoMigrate(&models.Grind{})
-	db.AutoMigrate(&models.Task{})
+	err = migrate.MigrateDatabase()
+	if err != nil {
+		panic(err)
+	}
 
 	// define routes
 	router.POST("/v1/register", api.RegisterAPI)

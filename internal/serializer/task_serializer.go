@@ -41,13 +41,14 @@ func SerializeTask(task *models.Task) gin.H {
  */
 func SerializeTaskAsProgressRecord(task *models.Task) gin.H {
 	status := "pending"
+	if task.Completed {
+		status = "completed"
+	}
 
-	if task.Date.Before(time.Now().AddDate(0, 0, 1).UTC()) {
-		if task.Completed {
-			status = "completed"
-		} else {
-			status = "missed"
-		}
+	startOfTaskDay := task.Date.UTC().Truncate(24 * time.Hour).Add(time.Hour * 1)
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	if startOfTaskDay.Before(startOfToday) {
+		status = "missed"
 	}
 
 	return gin.H{

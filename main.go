@@ -37,6 +37,8 @@ func main() {
 	router.GET("/v1/grinds", api.GetAllUserGrindsAPI)
 	router.DELETE("/v1/grinds/delete-all", api.DeleteAllGrindsAPI)
 	router.GET("/v1/grinds/current", api.GetUserCurrentGrindAPI)
+	router.GET("/v1/grinds/:id", api.GetGrindAPI)
+	router.POST("/v1/grinds/:id/quit", api.QuitGrindAPI)
 	router.POST("/v1/tasks/finish", api.FinishTodayTaskAPI)
 	router.GET("/v1/tasks/:id", api.GetTaskAPI)
 

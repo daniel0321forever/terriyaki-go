@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
@@ -67,14 +66,6 @@ func GetParticipateRecord(id string) (*ParticipateRecord, error) {
  * @return the participant record, `userID`, `grindID`, `missedDays`, `totalPenalty`, `quitted` and `quittedAt`
  */
 func GetParticipateRecordByUserIDAndGrindID(userID string, grindID string) (*ParticipateRecord, error) {
-	// find all participant record
-	fmt.Println("GetParticipantRecordByUserIDAndGrindID", userID, grindID)
-	var allRecords []ParticipateRecord
-	database.Db.Find(&allRecords)
-	for _, record := range allRecords {
-		fmt.Println(record.UserID, record.GrindID)
-	}
-
 	var participateRecord ParticipateRecord
 	result := database.Db.Where("user_id = ? AND grind_id = ?", userID, grindID).First(&participateRecord)
 	if result.Error != nil {
@@ -93,7 +84,7 @@ func GetParticipateRecordByUserIDAndGrindID(userID string, grindID string) (*Par
  * @return the updated participant record
  */
 func UpdateParticipateRecord(
-	id string,
+	id uint,
 	updates map[string]any,
 ) (*ParticipateRecord, error) {
 	var participateRecord ParticipateRecord

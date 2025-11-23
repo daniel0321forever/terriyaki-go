@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/daniel0321forever/terriyaki-go/internal/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -40,7 +41,7 @@ func CreateGrind(
 	for _, participant := range participants {
 		user, err := GetUserByEmail(participant.(string))
 		if err != nil {
-			return nil, err
+			return nil, errors.New(config.ERROR_CODE_USER_NOT_FOUND)
 		}
 		participantsUsers = append(participantsUsers, *user)
 	}
@@ -91,7 +92,7 @@ func CreateGrind(
  */
 func GetGrind(id string) (*Grind, error) {
 	var grind Grind
-	result := database.Db.Where("id = ?", id).First(&grind)
+	result := database.Db.Preload("Participants").Where("id = ?", id).First(&grind)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -106,8 +107,8 @@ func GetGrind(id string) (*Grind, error) {
 func GetOngoingGrindByUserID(userID string) (*Grind, error) {
 	var grind Grind
 	result := database.Db.Preload("Participants").
-		Joins("JOIN grind_participants ON grind_participants.grind_id = grinds.id").
-		Where("grind_participants.user_id = ?", userID).
+		Joins("JOIN participate_records ON participate_records.grind_id = grinds.id").
+		Where("participate_records.user_id = ?", userID).
 		Order("grinds.created_at DESC").
 		First(&grind)
 
@@ -119,8 +120,21 @@ func GetOngoingGrindByUserID(userID string) (*Grind, error) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
+	// Check if the grind has ended
 	endDate := grind.StartDate.AddDate(0, 0, int(grind.Duration))
 	if endDate.Before(time.Now().UTC()) {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	// Check the participate record for the current user
+	var participateRecord ParticipateRecord
+	result = database.Db.Where("user_id = ? AND grind_id = ?", userID, grind.ID).First(&participateRecord)
+	if result.Error != nil {
+		// If the participate record is not found, return not found error
+		return nil, result.Error
+	}
+
+	if participateRecord.Quitted {
 		return nil, gorm.ErrRecordNotFound
 	}
 
@@ -137,7 +151,7 @@ func GetOngoingGrindByUserID(userID string) (*Grind, error) {
 func UpdateGrind(id string, updates map[string]any) (*Grind, error) {
 
 	var grind Grind
-	result := database.Db.Model(&grind).Where("id = ?", id).First(&grind).Updates(updates)
+	result := database.Db.Preload("Participants").Model(&grind).Where("id = ?", id).First(&grind).Updates(updates)
 
 	if result.Error != nil {
 		return nil, result.Error
@@ -173,9 +187,21 @@ func RemoveParticipantFromGrind(grindID string, participantID string) error {
 	return nil
 }
 
+func GetAllUserGrinds(userID string) ([]Grind, error) {
+	var grinds []Grind
+	result := database.Db.Preload("Participants").
+		Joins("JOIN participate_records ON participate_records.grind_id = grinds.id").
+		Where("participate_records.user_id = ?", userID).
+		Find(&grinds)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return grinds, nil
+}
+
 func GetAllGrinds() ([]Grind, error) {
 	var grinds []Grind
-	result := database.Db.Find(&grinds)
+	result := database.Db.Preload("Participants").Find(&grinds)
 	if result.Error != nil {
 		return nil, result.Error
 	}

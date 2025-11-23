@@ -68,8 +68,12 @@ func CreateTask(
  * @return the today task
  */
 func GetTodayTask(userID string, grindID string) (*Task, error) {
+
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour).Add(-time.Hour * 1)
+	endOfToday := startOfToday.Add(time.Hour * 24)
+
 	var task Task
-	result := database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", userID, grindID, time.Now().UTC(), time.Now().UTC().AddDate(0, 0, 1)).First(&task)
+	result := database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", userID, grindID, startOfToday, endOfToday).First(&task)
 	if result.Error != nil {
 		return nil, result.Error
 	}

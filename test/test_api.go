@@ -215,6 +215,6 @@ func main() {
 	// testLoginAPI()
 	// testCreateGrindAPI()
 	// testGetGrindAPI()
-	testDeleteUserAPI()
-	// testDeleteAllGrindsAPI()
+	// testDeleteUserAPI()
+	testDeleteAllGrindsAPI()
 }

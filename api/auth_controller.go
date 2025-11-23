@@ -131,7 +131,7 @@ func LoginAPI(c *gin.Context) {
 		"message": "Login successful",
 		"user":    serializer.SerializeUser(user),
 		"token":   token,
-		"grind":   serializer.SerializeGrind(grind),
+		"grind":   serializer.SerializeGrind(user, grind, false),
 	})
 }
 
@@ -188,7 +188,7 @@ func VerifyTokenAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Token verified",
 		"user":    serializer.SerializeUser(user),
-		"grind":   serializer.SerializeGrind(grind),
+		"grind":   serializer.SerializeGrind(user, grind, false),
 	})
 }
 

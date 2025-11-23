@@ -1,8 +1,11 @@
 package serializer
 
 import (
+	"fmt"
+
 	"github.com/daniel0321forever/terriyaki-go/internal/models"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 /**
@@ -10,19 +13,45 @@ import (
  * @param grind - the grind to serialize
  * @return the serialized grind
  */
-func SerializeGrind(grind *models.Grind) gin.H {
-	participantsRecords := []gin.H{}
+func SerializeGrind(user *models.User, grind *models.Grind, simple bool) gin.H {
+	participantsData := []gin.H{}
 	for _, participant := range grind.Participants {
-		participantsRecords = append(participantsRecords, SerializeUserAsGrindParticipant(&participant, grind))
+		participantsData = append(participantsData, SerializeUserAsGrindParticipant(&participant, grind))
+	}
+
+	// quitted or not
+	quitted := false
+	participateRecord, err := models.GetParticipateRecordByUserIDAndGrindID(user.ID, grind.ID)
+	if err != nil {
+		fmt.Println(err)
+	}
+	quitted = participateRecord.Quitted
+
+	if simple {
+		return gin.H{
+			"id":           grind.ID,
+			"duration":     grind.Duration,
+			"budget":       grind.Budget,
+			"startDate":    grind.StartDate,
+			"participants": participantsData,
+			"quitted":      quitted,
+		}
 	}
 
 	// get progress tasks
 	progressTasks := SerializeGrindTasks(grind)
 
 	// get today task
-	taskToday, _ := models.GetTodayTask(grind.Participants[0].ID, grind.ID)
-	taskTodayRecord := gin.H{}
-	if taskToday != nil {
+	taskToday, err := models.GetTodayTask(user.ID, grind.ID)
+	var taskTodayRecord gin.H
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			taskTodayRecord = gin.H{}
+		} else {
+			panic(err)
+		}
+	} else {
 		taskTodayRecord = SerializeTask(taskToday)
 	}
 
@@ -31,9 +60,10 @@ func SerializeGrind(grind *models.Grind) gin.H {
 		"duration":     grind.Duration,
 		"budget":       grind.Budget,
 		"startDate":    grind.StartDate,
-		"participants": participantsRecords,
+		"participants": participantsData,
 		"taskToday":    taskTodayRecord,
 		"progress":     progressTasks,
+		"quitted":      quitted,
 	}
 }
 
@@ -42,10 +72,10 @@ func SerializeGrind(grind *models.Grind) gin.H {
  * @param grinds - the list of grinds to serialize
  * @return the serialized list of grinds
  */
-func SerializeGrinds(grinds []models.Grind) []gin.H {
+func SerializeGrinds(user *models.User, grinds []models.Grind, simple bool) []gin.H {
 	grindsRecords := []gin.H{}
 	for _, grind := range grinds {
-		grindsRecords = append(grindsRecords, SerializeGrind(&grind))
+		grindsRecords = append(grindsRecords, SerializeGrind(user, &grind, simple))
 	}
 	return grindsRecords
 }

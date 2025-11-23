@@ -1,12 +1,10 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/daniel0321forever/terriyaki-go/api"
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
-	"github.com/daniel0321forever/terriyaki-go/internal/models"
+	"github.com/daniel0321forever/terriyaki-go/internal/migrate"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -19,15 +17,15 @@ func main() {
 	router.Use(cors.New(config))
 
 	// connect to database
-	db, err := database.Connect()
+	_, err := database.Connect()
 	if err != nil {
-		fmt.Println("Error connecting to database: ", err)
-		return
+		panic(err)
 	}
 
-	db.AutoMigrate(&models.User{})
-	db.AutoMigrate(&models.Grind{})
-	db.AutoMigrate(&models.Task{})
+	err = migrate.MigrateDatabase()
+	if err != nil {
+		panic(err)
+	}
 
 	// define routes
 	router.POST("/v1/register", api.RegisterAPI)
@@ -39,6 +37,8 @@ func main() {
 	router.GET("/v1/grinds", api.GetAllUserGrindsAPI)
 	router.DELETE("/v1/grinds/delete-all", api.DeleteAllGrindsAPI)
 	router.GET("/v1/grinds/current", api.GetUserCurrentGrindAPI)
+	router.GET("/v1/grinds/:id", api.GetGrindAPI)
+	router.POST("/v1/grinds/:id/quit", api.QuitGrindAPI)
 	router.POST("/v1/tasks/finish", api.FinishTodayTaskAPI)
 	router.GET("/v1/tasks/:id", api.GetTaskAPI)
 

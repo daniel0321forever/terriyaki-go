@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
@@ -68,8 +67,8 @@ func CreateGrind(
 		}
 		for i := range duration {
 			_, err := CreateTask(
-				"Task "+strconv.Itoa(i+1),
-				"Task "+strconv.Itoa(i+1)+" description",
+				"",
+				"",
 				"",
 				user.ID,
 				grind.ID,

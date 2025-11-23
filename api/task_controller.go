@@ -24,7 +24,9 @@ func GetTaskAPI(c *gin.Context) {
 	}
 
 	taskID := c.Param("id")
-	task, err := models.GetTaskByID(taskID)
+	setProblemIfNeeded := c.Query("set-problem") == "true"
+
+	task, err := models.GetTaskByID(taskID, setProblemIfNeeded)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message":   "Task not found",

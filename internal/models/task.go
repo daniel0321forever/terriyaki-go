@@ -1,27 +1,34 @@
 package models
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
+	"github.com/daniel0321forever/terriyaki-go/internal/utils"
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type Task struct {
 	gorm.Model
-	ID                 string    `json:"id" gorm:"primaryKey"`
-	TaskType           string    `json:"task_type" gorm:"not null"`
-	UserID             string    `json:"user_id" gorm:"not null"`
-	GrindID            string    `json:"grind_id" gorm:"not null;constraint:OnDelete:CASCADE;"`
-	Date               time.Time `json:"date" gorm:"not null"`
-	FinishedTime       time.Time `json:"finished_time" gorm:""`
-	Completed          bool      `json:"completed" gorm:"not null"`
-	ProblemTitle       *string   `json:"problem_title" gorm:""`
-	ProblemDescription *string   `json:"problem_description" gorm:""`
-	ProblemURL         *string   `json:"problem_url" gorm:""`
-	Code               *string   `json:"code" gorm:""`
-	CodeLanguage       *string   `json:"code_language" gorm:""`
+	ID                 string         `json:"id" gorm:"primaryKey"`
+	TaskType           string         `json:"task_type" gorm:"not null"`
+	UserID             string         `json:"user_id" gorm:"not null"`
+	GrindID            string         `json:"grind_id" gorm:"not null;constraint:OnDelete:CASCADE;"`
+	Date               time.Time      `json:"date" gorm:"not null"`
+	FinishedTime       time.Time      `json:"finished_time" gorm:""`
+	Completed          bool           `json:"completed" gorm:"not null"`
+	ProblemTitle       *string        `json:"problem_title" gorm:""`
+	ProblemDescription *string        `json:"problem_description" gorm:""`
+	ProblemURL         *string        `json:"problem_url" gorm:""`
+	ProblemDifficulty  *string        `json:"problem_difficulty" gorm:""`
+	ProblemTopicTags   datatypes.JSON `json:"problem_topic_tags" gorm:""`
+
+	Code         *string `json:"code" gorm:""`
+	CodeLanguage *string `json:"code_language" gorm:""`
 }
 
 /**
@@ -74,13 +81,20 @@ func GetTodayTask(userID string, grindID string) (*Task, error) {
 
 	var task Task
 	result := database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", userID, grindID, startOfToday, endOfToday).First(&task)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
 		return nil, gorm.ErrRecordNotFound
 	}
-	return &task, result.Error
+
+	err := setTaskProblemIfNeeded(&task)
+	if err != nil {
+		return nil, err
+	}
+
+	return &task, nil
 }
 
 /**
@@ -88,13 +102,21 @@ func GetTodayTask(userID string, grindID string) (*Task, error) {
  * @param id - the id of the task
  * @return the task
  */
-func GetTaskByID(id string) (*Task, error) {
+func GetTaskByID(id string, setProblemIfNeeded bool) (*Task, error) {
 	var task Task
 	result := database.Db.Where("id = ?", id).First(&task)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return &task, result.Error
+
+	if setProblemIfNeeded {
+		err := setTaskProblemIfNeeded(&task)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &task, nil
 }
 
 /**
@@ -105,4 +127,57 @@ func GetTaskByID(id string) (*Task, error) {
 func DeleteTask(id string) error {
 	result := database.Db.Unscoped().Delete(&Task{}, id)
 	return result.Error
+}
+
+func setTaskProblemIfNeeded(task *Task) error {
+	if *task.ProblemURL == "" {
+		leetcodeProblem, err := utils.GetRandomLeetCodeProblem()
+		if err != nil {
+			return err
+		}
+
+		problemTitle := leetcodeProblem.Title
+		problemDescription := "A daily problem from LeetCode"
+		problemURL := "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
+
+		fmt.Println("task.GrindID", task.GrindID)
+		grind, err := GetGrind(task.GrindID)
+		if err != nil {
+			return err
+		}
+
+		startOfTaskDate := task.Date.UTC().Truncate(24 * time.Hour).Add(-time.Hour * 1)
+		endOfTaskDate := startOfTaskDate.Add(time.Hour * 24)
+
+		for _, participant := range grind.Participants {
+
+			var task Task
+			database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", participant.ID, grind.ID, startOfTaskDate, endOfTaskDate).First(&task)
+
+			task.ProblemTitle = &problemTitle
+			task.ProblemDescription = &problemDescription
+			task.ProblemURL = &problemURL
+			task.ProblemDifficulty = &leetcodeProblem.Difficulty
+			topicTagNames := []string{}
+
+			for _, tag := range leetcodeProblem.TopicTags {
+				topicTagNames = append(topicTagNames, tag.Name)
+			}
+			// Marshal topicTagNames to JSON before assigning to ProblemTopicTags
+			jsonBytes, err := json.Marshal(topicTagNames)
+			if err != nil {
+				return err
+			}
+			task.ProblemTopicTags = datatypes.JSON(jsonBytes)
+
+			database.Db.Save(&task)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return nil
 }

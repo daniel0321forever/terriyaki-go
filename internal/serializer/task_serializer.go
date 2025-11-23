@@ -27,6 +27,8 @@ func SerializeTask(task *models.Task) gin.H {
 		"title":        task.ProblemTitle,
 		"description":  task.ProblemDescription,
 		"url":          task.ProblemURL,
+		"difficulty":   task.ProblemDifficulty,
+		"topicTags":    task.ProblemTopicTags,
 	}
 }
 

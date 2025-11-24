@@ -161,12 +161,37 @@ func UpdateGrind(id string, updates map[string]any) (*Grind, error) {
 func AddParticipantToGrind(grindID string, participantID string) error {
 	participateRecord, _ := GetParticipateRecordByUserIDAndGrindID(participantID, grindID)
 	if participateRecord != nil {
-		return errors.New("PARTICIPANT_EXISTS")
+		return errors.New(config.ERROR_CODE_PARTICIPANT_EXISTS)
 	}
 
 	_, err := CreateParticipateRecord(participantID, grindID)
 	if err != nil {
 		return err
+	}
+
+	// After adding participant to grind, create any tasks for the participant.
+	// For this context, let's assume we want to create daily tasks for the duration of the grind.
+
+	var grind Grind
+	result := database.Db.Where("id = ?", grindID).First(&grind)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// Create a task for each day of the grind for the new participant
+	for i := 0; i < int(grind.Duration); i++ {
+		taskDate := grind.StartDate.AddDate(0, 0, i)
+		_, err := CreateTask(
+			"",
+			"",
+			"",
+			participantID,
+			grindID,
+			taskDate,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

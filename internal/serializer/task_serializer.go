@@ -70,9 +70,9 @@ func SerializeTaskAsProgressRecord(task *models.Task) gin.H {
   - - `completed`: the task is completed
   - - `missed`: the task is missed
 */
-func SerializeGrindTasks(grind *models.Grind) []gin.H {
+func SerializeGrindTasksForUser(user *models.User, grind *models.Grind) []gin.H {
 	tasks := []models.Task{}
-	result := database.Db.Where("grind_id = ?", grind.ID).Order("date ASC").Find(&tasks)
+	result := database.Db.Where("user_id = ? AND grind_id = ?", user.ID, grind.ID).Order("date ASC").Find(&tasks)
 	if result.Error != nil {
 		return []gin.H{}
 	}

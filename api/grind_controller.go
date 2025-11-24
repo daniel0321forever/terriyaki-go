@@ -29,10 +29,11 @@ func CreateGrindAPI(c *gin.Context) {
 
 	user, err := models.GetUser(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "user not found",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
 		})
+		return
 	}
 
 	var body map[string]any
@@ -50,7 +51,7 @@ func CreateGrindAPI(c *gin.Context) {
 	participants := body["participants"].([]interface{})
 	startDate, _ := time.Parse(time.RFC3339, body["startDate"].(string))
 
-	grind, err := models.CreateGrind(duration, budget, participants, startDate)
+	grind, err := models.CreateGrind(duration, budget, []any{user.Email}, startDate)
 	if err != nil {
 		if strings.Contains(err.Error(), config.ERROR_CODE_USER_NOT_FOUND) {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -66,6 +67,32 @@ func CreateGrindAPI(c *gin.Context) {
 			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
 		})
 		return
+	}
+
+	// send invitation messages to all participants
+	for _, participant := range participants {
+		// skip if the participant is the same as the user
+		if participant.(string) == user.Email {
+			continue
+		}
+
+		participantUser, err := models.GetUserByEmail(participant.(string))
+		if err != nil {
+			models.DeleteGrind(grind.ID)
+
+			fmt.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message":   "Participant " + participant.(string) + " not found",
+				"errorCode": config.ERROR_CODE_USER_NOT_FOUND,
+			})
+			return
+		}
+
+		_, err = models.CreateInvitationMessage(user, participantUser, grind.ID)
+		if err != nil {
+			fmt.Println(err)
+			continue // skip if the invitation message is not created
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

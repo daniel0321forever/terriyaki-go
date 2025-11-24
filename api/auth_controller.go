@@ -35,14 +35,14 @@ func RegisterAPI(c *gin.Context) {
 				"errorCode": config.ERROR_CODE_DUPLICATE_ENTRY,
 			})
 			return
-		} else {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message":   "internal server error",
-				"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-			})
-			return
 		}
+
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "internal server error",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
 	}
 
 	token, err := utils.GenerateJWTToken(user.ID)
@@ -64,7 +64,6 @@ func RegisterAPI(c *gin.Context) {
 }
 
 func LoginAPI(c *gin.Context) {
-	fmt.Println("LoginAPI called")
 	var body map[string]string
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

@@ -41,6 +41,11 @@ func main() {
 	router.POST("/v1/grinds/:id/quit", api.QuitGrindAPI)
 	router.POST("/v1/tasks/finish", api.FinishTodayTaskAPI)
 	router.GET("/v1/tasks/:id", api.GetTaskAPI)
+	router.GET("/v1/messages", api.GetMessageAPI)
+	router.POST("/v1/messages/:id/read", api.ReadMessageAPI)
+	router.POST("/v1/messages/:id/invitation/create", api.CreateInvitationAPI)
+	router.POST("/v1/messages/:id/invitation/accept", api.AcceptInvitationAPI)
+	router.POST("/v1/messages/:id/invitation/reject", api.RejectInvitationAPI)
 
 	router.Run(":8080")
 }

@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+var testAccount string = "secondtest"
+var testEmail string = "secondtest@test.com"
+var testPassword string = "test"
+var testGrindID string = "44c1c728-54ad-4809-ba30-a8cc23aea4f1"
+
 func testRunning() {
 	req, err := http.NewRequest("GET", "http://localhost:8080/v1/ping", nil)
 	if err != nil {
@@ -34,9 +39,9 @@ func testRunning() {
 
 func testRegisterAPI() {
 	body := map[string]string{
-		"username": "test",
-		"email":    "test@test.com",
-		"password": "test",
+		"username": testAccount,
+		"email":    testEmail,
+		"password": testPassword,
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -67,8 +72,8 @@ func testRegisterAPI() {
 
 func testLoginAPI() string {
 	body := map[string]any{
-		"email":    "test@test.com",
-		"password": "test",
+		"email":    testEmail,
+		"password": testPassword,
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -94,7 +99,6 @@ func testLoginAPI() string {
 		fmt.Println("could not read body", err)
 		return ""
 	}
-	fmt.Println("Response body:", string(bodyResponse))
 
 	var response map[string]any
 	err = json.Unmarshal(bodyResponse, &response)
@@ -115,7 +119,7 @@ func testCreateGrindAPI() {
 		"startDate":    time.Now().AddDate(0, 0, -1).Format(time.RFC3339),
 		"duration":     30,
 		"budget":       100,
-		"participants": []string{"test@test.com"},
+		"participants": []string{testEmail},
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -209,6 +213,42 @@ func testDeleteAllGrindsAPI() {
 	fmt.Println("Response body:", string(bodyResponse))
 }
 
+func testCreateInvitationAPI() {
+	token := testLoginAPI()
+	if token == "" {
+		fmt.Println("could not get token")
+		return
+	}
+
+	body := map[string]any{
+		"grindID":          testGrindID,
+		"participantEmail": "test@test.com",
+	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		fmt.Println("could not marshal request body", err)
+		return
+	}
+	req, err := http.NewRequest("POST", "http://localhost:8080/v1/messages/invitation/create", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		fmt.Println("could not create request", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("could not send request", err)
+		return
+	}
+	defer resp.Body.Close()
+	bodyResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("could not read body", err)
+		return
+	}
+	fmt.Println("Response body:", string(bodyResponse))
+}
+
 func main() {
 	// testRunning()
 	// testRegisterAPI()
@@ -216,5 +256,7 @@ func main() {
 	// testCreateGrindAPI()
 	// testGetGrindAPI()
 	// testDeleteUserAPI()
-	testDeleteAllGrindsAPI()
+	// testDeleteAllGrindsAPI()
+	testCreateInvitationAPI()
+
 }

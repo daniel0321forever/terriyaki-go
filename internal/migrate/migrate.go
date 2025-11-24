@@ -6,13 +6,13 @@ import (
 )
 
 func MigrateDatabase() error {
-	err := database.Db.AutoMigrate(&models.User{}, &models.Grind{}, &models.Task{}, &models.ParticipateRecord{})
-	if err != nil {
-		return err
-	}
-
-	// TODO: can remove this after first migration is complete
-	err = MigrateParticipateRecord()
+	err := database.Db.AutoMigrate(
+		&models.User{},
+		&models.Grind{},
+		&models.Task{},
+		&models.ParticipateRecord{},
+		&models.Message{},
+	)
 	if err != nil {
 		return err
 	}

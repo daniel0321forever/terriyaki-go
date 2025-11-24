@@ -31,5 +31,8 @@ func SerializeUserAsGrindParticipant(user *models.User, grind *models.Grind) gin
 		return gin.H{}
 	}
 
-	return SerializeParticipateRecord(participateRecord)
+	var serializedParticipateRecord gin.H = SerializeParticipateRecord(participateRecord)
+	serializedParticipateRecord["username"] = user.Username
+
+	return serializedParticipateRecord
 }

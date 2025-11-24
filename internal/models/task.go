@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
@@ -130,53 +129,84 @@ func DeleteTask(id string) error {
 }
 
 func setTaskProblemIfNeeded(task *Task) error {
-	if *task.ProblemURL == "" {
-		leetcodeProblem, err := utils.GetRandomLeetCodeProblem()
-		if err != nil {
-			return err
+	if *task.ProblemTitle != "" {
+		return nil
+	}
+
+	var problemTitle string
+	var problemDescription string
+	var problemURL string
+	var problemDifficulty string
+	var problemTopicTags datatypes.JSON
+
+	startOfTaskDate := task.Date.UTC().Truncate(24 * time.Hour).Add(-time.Hour * 1)
+	endOfTaskDate := startOfTaskDate.Add(time.Hour * 24)
+
+	grind, _ := GetGrind(task.GrindID)
+	tasks := []Task{}
+	database.Db.Where("grind_id = ? AND date >= ? AND date <= ? AND problem_title IS NULL", task.GrindID, startOfTaskDate, endOfTaskDate).Find(&tasks)
+
+	for _, t := range tasks {
+		if t.ProblemTitle != nil && *t.ProblemTitle != "" {
+			problemTitle = *t.ProblemTitle
+			problemDescription = *t.ProblemDescription
+			problemURL = *t.ProblemURL
+			problemDifficulty = *t.ProblemDifficulty
+			problemTopicTags = t.ProblemTopicTags
 		}
+	}
 
-		problemTitle := leetcodeProblem.Title
-		problemDescription := "A daily problem from LeetCode"
-		problemURL := "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
-
-		fmt.Println("task.GrindID", task.GrindID)
-		grind, err := GetGrind(task.GrindID)
-		if err != nil {
-			return err
-		}
-
-		startOfTaskDate := task.Date.UTC().Truncate(24 * time.Hour).Add(-time.Hour * 1)
-		endOfTaskDate := startOfTaskDate.Add(time.Hour * 24)
-
-		for _, participant := range grind.Participants {
-
-			var task Task
-			database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", participant.ID, grind.ID, startOfTaskDate, endOfTaskDate).First(&task)
-
-			task.ProblemTitle = &problemTitle
-			task.ProblemDescription = &problemDescription
-			task.ProblemURL = &problemURL
-			task.ProblemDifficulty = &leetcodeProblem.Difficulty
-			topicTagNames := []string{}
-
-			for _, tag := range leetcodeProblem.TopicTags {
-				topicTagNames = append(topicTagNames, tag.Name)
+	// the case that the problem is already set on other participants' tasks
+	if problemTitle != "" {
+		for _, t := range tasks {
+			if t.ProblemTitle != nil && *t.ProblemTitle != "" {
+				continue
 			}
-			// Marshal topicTagNames to JSON before assigning to ProblemTopicTags
-			jsonBytes, err := json.Marshal(topicTagNames)
-			if err != nil {
-				return err
-			}
-			task.ProblemTopicTags = datatypes.JSON(jsonBytes)
+			t.ProblemTitle = &problemTitle
+			t.ProblemDescription = &problemDescription
+			t.ProblemURL = &problemURL
+			t.ProblemDifficulty = &problemDifficulty
+			t.ProblemTopicTags = problemTopicTags
 
-			database.Db.Save(&task)
-			if err != nil {
-				return err
-			}
+			database.Db.Save(&t)
 		}
 
 		return nil
+	}
+
+	leetcodeProblem, err := utils.GetRandomLeetCodeProblem()
+	if err != nil {
+		return err
+	}
+
+	problemTitle = leetcodeProblem.Title
+	problemDescription = "A daily problem from LeetCode"
+	problemURL = "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
+	problemDifficulty = leetcodeProblem.Difficulty
+
+	// get topic tag names
+	topicTagNames := []string{}
+	for _, tag := range leetcodeProblem.TopicTags {
+		topicTagNames = append(topicTagNames, tag.Name)
+	}
+	jsonBytes, err := json.Marshal(topicTagNames)
+	if err != nil {
+		return err
+	}
+	problemTopicTags = datatypes.JSON(jsonBytes)
+
+	for _, participant := range grind.Participants {
+
+		var t Task
+		database.Db.Where("user_id = ? AND grind_id = ? AND date >= ? AND date <= ?", participant.ID, grind.ID, startOfTaskDate, endOfTaskDate).First(&t)
+
+		t.ProblemTitle = &problemTitle
+		t.ProblemDescription = &problemDescription
+		t.ProblemURL = &problemURL
+		t.ProblemDifficulty = &problemDifficulty
+		t.ProblemTopicTags = problemTopicTags
+
+		database.Db.Save(&t)
 	}
 
 	return nil

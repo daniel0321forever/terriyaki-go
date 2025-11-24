@@ -144,7 +144,7 @@ func DeleteUser(id string) error {
 
 	// Remove user from all grind_participants associations (many-to-many join table)
 	// Since the relationship is defined on Grind side, we delete directly from the join table
-	if err := database.Db.Exec("DELETE FROM grind_participants WHERE user_id = ?", id).Error; err != nil {
+	if err := database.Db.Exec("DELETE FROM participate_records WHERE user_id = ?", id).Error; err != nil {
 		return err
 	}
 

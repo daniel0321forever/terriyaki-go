@@ -39,7 +39,7 @@ func SerializeGrind(user *models.User, grind *models.Grind, simple bool) gin.H {
 	}
 
 	// get progress tasks
-	progressTasks := SerializeGrindTasks(grind)
+	progressTasks := SerializeGrindTasksForUser(user, grind)
 
 	// get today task
 	taskToday, err := models.GetTodayTask(user.ID, grind.ID)

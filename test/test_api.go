@@ -106,6 +106,8 @@ func testLoginAPI() string {
 		fmt.Println("could not unmarshal response body", err)
 		return ""
 	}
+
+	fmt.Println("Response token:", response["token"])
 	return response["token"].(string)
 }
 
@@ -257,6 +259,6 @@ func main() {
 	// testGetGrindAPI()
 	// testDeleteUserAPI()
 	// testDeleteAllGrindsAPI()
-	testCreateInvitationAPI()
+	// testCreateInvitationAPI()
 
 }

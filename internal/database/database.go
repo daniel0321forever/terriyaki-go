@@ -24,10 +24,13 @@ func Connect() (*gorm.DB, error) {
 	user := os.Getenv("POSTGRES_USER")
 	dbname := os.Getenv("POSTGRES_DB")
 	pass := os.Getenv("POSTGRES_PASSWORD")
+	sslmode := os.Getenv("POSTGRES_SSLMODE")
+	if sslmode == "" {
+		sslmode = "disable" // default for local development
+	}
 
-	// set up db
-	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=require",
-		host, port, user, dbname, pass)
+	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=%s",
+		host, port, user, dbname, pass, sslmode)
 	fmt.Println("psqlSetup: ", psqlSetup)
 	db, err := gorm.Open(postgres.Open(psqlSetup), &gorm.Config{})
 	if err != nil {

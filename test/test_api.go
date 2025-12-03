@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
+// var host string = "http://34.222.135.134:8080"
+var host string = "http://localhost:8080"
 var testAccount string = "secondtest"
 var testEmail string = "secondtest@test.com"
 var testPassword string = "test"
 var testGrindID string = "44c1c728-54ad-4809-ba30-a8cc23aea4f1"
 
 func testRunning() {
-	req, err := http.NewRequest("GET", "http://localhost:8080/v1/ping", nil)
+	req, err := http.NewRequest("GET", host+"/api/v1/ping", nil)
 	if err != nil {
 		fmt.Println("could not create request")
 		return
@@ -48,7 +50,7 @@ func testRegisterAPI() {
 		fmt.Println("could not marshal request body")
 		return
 	}
-	req, err := http.NewRequest("POST", "http://localhost:8080/v1/register", bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest("POST", host+"/api/v1/register", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		fmt.Println("could not create request")
 		return
@@ -81,7 +83,7 @@ func testLoginAPI() string {
 		return ""
 	}
 
-	req, err := http.NewRequest("POST", "http://localhost:8080/v1/login", bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest("POST", host+"/api/v1/login", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		fmt.Println("could not create request", err)
 		return ""
@@ -106,6 +108,8 @@ func testLoginAPI() string {
 		fmt.Println("could not unmarshal response body", err)
 		return ""
 	}
+
+	fmt.Println("Response token:", response["token"])
 	return response["token"].(string)
 }
 
@@ -126,7 +130,7 @@ func testCreateGrindAPI() {
 		fmt.Println("could not marshal request body", err)
 		return
 	}
-	req, err := http.NewRequest("POST", "http://localhost:8080/v1/grinds", bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest("POST", host+"/api/v1/grinds", bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	if err != nil {
@@ -153,7 +157,7 @@ func testGetGrindAPI() {
 		fmt.Println("could not get token")
 		return
 	}
-	req, err := http.NewRequest("GET", "http://localhost:8080/v1/grinds/current", nil)
+	req, err := http.NewRequest("GET", host+"/api/v1/grinds/current", nil)
 	if err != nil {
 		fmt.Println("could not create request", err)
 		return
@@ -174,7 +178,7 @@ func testGetGrindAPI() {
 }
 
 func testDeleteUserAPI() {
-	req, err := http.NewRequest("DELETE", "http://localhost:8080/v1/users/delete", nil)
+	req, err := http.NewRequest("DELETE", host+"/api/v1/users/delete", nil)
 	if err != nil {
 		fmt.Println("could not create request", err)
 		return
@@ -194,7 +198,7 @@ func testDeleteUserAPI() {
 }
 
 func testDeleteAllGrindsAPI() {
-	req, err := http.NewRequest("DELETE", "http://localhost:8080/v1/grinds/delete-all", nil)
+	req, err := http.NewRequest("DELETE", host+"/api/v1/grinds/delete-all", nil)
 	if err != nil {
 		fmt.Println("could not create request", err)
 		return
@@ -229,7 +233,7 @@ func testCreateInvitationAPI() {
 		fmt.Println("could not marshal request body", err)
 		return
 	}
-	req, err := http.NewRequest("POST", "http://localhost:8080/v1/messages/invitation/create", bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest("POST", host+"/api/v1/messages/invitation/create", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		fmt.Println("could not create request", err)
 		return
@@ -257,6 +261,6 @@ func main() {
 	// testGetGrindAPI()
 	// testDeleteUserAPI()
 	// testDeleteAllGrindsAPI()
-	testCreateInvitationAPI()
+	// testCreateInvitationAPI()
 
 }

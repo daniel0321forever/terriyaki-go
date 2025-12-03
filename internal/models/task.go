@@ -174,13 +174,15 @@ func setTaskProblemIfNeeded(task *Task) error {
 		return nil
 	}
 
-	leetcodeProblem, err := utils.GetRandomLeetCodeProblem()
+	// TODO: make this configurable in Task model
+	list_name := "neetcode250"
+	leetcodeProblem, err := utils.GetRandomProblemFromList(list_name)
 	if err != nil {
 		return err
 	}
 
 	problemTitle = leetcodeProblem.Title
-	problemDescription = "A daily problem from LeetCode"
+	problemDescription = "A daily problem from " + list_name
 	problemURL = "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
 	problemDifficulty = leetcodeProblem.Difficulty
 

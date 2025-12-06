@@ -47,6 +47,7 @@ func main() {
 	router.POST("/api/v1/messages/:id/invitation/create", api.CreateInvitationAPI)
 	router.POST("/api/v1/messages/:id/invitation/accept", api.AcceptInvitationAPI)
 	router.POST("/api/v1/messages/:id/invitation/reject", api.RejectInvitationAPI)
+	router.POST("/api/v1/interviews/llm", api.LLMWebhookAPI)
 
 	router.Run(":8080")
 }

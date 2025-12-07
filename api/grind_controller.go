@@ -127,6 +127,7 @@ func GetGrindAPI(c *gin.Context) {
 			"message":   "grind not found",
 			"errorCode": config.ERROR_CODE_NOT_FOUND,
 		})
+		return
 	}
 
 	fmt.Println("aa grind", grind)

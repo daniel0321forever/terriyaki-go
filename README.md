@@ -52,7 +52,7 @@ Go backend service for the Terriyaki application.
    ```
 
 3. **Edit the `.env` file with your PostgreSQL credentials:**
-   
+
    **Option A: Use your system username (recommended for local development):**
    ```
    POSTGRES_HOST=localhost
@@ -69,3 +69,19 @@ Go backend service for the Terriyaki application.
    ```
 
    The backend will start on **http://localhost:8080**
+
+## Local Integration Test
+- The problem
+  - Frontend → ElevenLabs: works (browser can reach ElevenLabs servers)
+  - ElevenLabs → Backend: fails (ElevenLabs servers can't reach localhost:8080)
+- Use ngrok to test the request from ElevenLabs to backend running on local.
+   - Ngrok creates a public URL that tunnels to your localhost:
+   ```text
+   Your Backend (localhost:8080)
+       ↓
+   Ngrok Tunnel
+       ↓
+   Public URL: https://abc123.ngrok.io
+       ↓
+   ElevenLabs servers can now reach it!
+   ```

@@ -12,6 +12,7 @@ func MigrateDatabase() error {
 		&models.Task{},
 		&models.ParticipateRecord{},
 		&models.Message{},
+		&models.InterviewSession{},
 	)
 	if err != nil {
 		return err

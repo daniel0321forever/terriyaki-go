@@ -13,6 +13,7 @@ import (
 var Db *gorm.DB //created outside to make it global.
 
 func Connect() (*gorm.DB, error) {
+	fmt.Println("Connecting to database...")
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("Error is occurred  on .env file please check")
@@ -25,8 +26,9 @@ func Connect() (*gorm.DB, error) {
 	pass := os.Getenv("POSTGRES_PASSWORD")
 
 	// set up db
-	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
+	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=require",
 		host, port, user, dbname, pass)
+	fmt.Println("psqlSetup: ", psqlSetup)
 	db, err := gorm.Open(postgres.Open(psqlSetup), &gorm.Config{})
 	if err != nil {
 		fmt.Println("There is an error while connecting to the database ", err)

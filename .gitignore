@@ -50,3 +50,6 @@ temp/
 
 # Log files
 *.log
+
+# go build
+build

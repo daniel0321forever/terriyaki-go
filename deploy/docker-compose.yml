@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  terriyaki-db:
+    image: postgres:15
+    container_name: terriyaki-db
+    ports:
+      - "5432:5432"
+    env_file:
+      - ../.env
+    volumes:
+      - terriyaki-data:/var/lib/postgresql/data
+
+  terriyaki-go:
+    build: ../.
+    container_name: terriyaki-go
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../.:/src
+    env_file:
+      - ../.env
+    environment:
+      - POSTGRES_HOST=terriyaki-db
+    depends_on:
+      - terriyaki-db
+    logging:
+        driver: "json-file"
+        options:
+            max-size: "50m"
+
+volumes:
+  terriyaki-data:

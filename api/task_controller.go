@@ -98,6 +98,8 @@ func FinishTodayTaskAPI(c *gin.Context) {
 		return
 	}
 
+	// TODO: mark task as completed by checking recent accepted problems via leetcode account
+	// submissions, err := leetcodeapi.GetUserRecentAcSubmissions(testUsername, pageSize) and task.ProblemTitle
 	task.Completed = true
 	task.FinishedTime = time.Now()
 	task.Code = &code

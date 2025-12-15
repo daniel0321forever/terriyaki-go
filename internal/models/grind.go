@@ -67,9 +67,6 @@ func CreateGrind(
 		}
 		for i := range duration {
 			_, err := CreateTask(
-				"",
-				"",
-				"",
 				user.ID,
 				grind.ID,
 				startDate.AddDate(0, 0, i),
@@ -182,9 +179,6 @@ func AddParticipantToGrind(grindID string, participantID string) error {
 	for i := 0; i < int(grind.Duration); i++ {
 		taskDate := grind.StartDate.AddDate(0, 0, i)
 		_, err := CreateTask(
-			"",
-			"",
-			"",
 			participantID,
 			grindID,
 			taskDate,

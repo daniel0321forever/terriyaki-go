@@ -62,17 +62,19 @@ func LLMWebhookAPI(c *gin.Context) {
 	fmt.Printf("[WEBHOOK] User message received for session %s: %s\n", req.SessionID, req.TranscribedText)
 	fmt.Printf("[WEBHOOK] Total messages in history: %d\n", len(conversationHistory))
 
-	// 6. Count messages to enforce 3-message limit
-	agentMessageCount := 0
+	// 6. Count user responses to check if interview should end
+	userMessageCount := 0
 	for _, msg := range conversationHistory {
-		if msg["role"] == "agent" {
-			agentMessageCount++
+		if msg["role"] == "user" {
+			userMessageCount++
 		}
 	}
 
-	// 7. Check if we've reached the limit
-	if agentMessageCount >= 3 {
-		// End the interview automatically
+	fmt.Printf("[WEBHOOK] User response count: %d/4\n", userMessageCount)
+
+	// 7. Check if we've reached the limit (4 user responses)
+	if userMessageCount >= 4 {
+		// End the interview automatically after candidate's 4th response
 		session.Status = "completed"
 		now := time.Now()
 		session.EndedAt = &now
@@ -303,7 +305,7 @@ func SaveAgentResponseAPI(c *gin.Context) {
 		"time":    time.Now().Format(time.RFC3339),
 	})
 
-	// 7. Check 3-message limit
+	// 7. Count agent messages to determine if we should end
 	agentMessageCount := 0
 	for _, msg := range conversationHistory {
 		if msg["role"] == "agent" {
@@ -311,18 +313,22 @@ func SaveAgentResponseAPI(c *gin.Context) {
 		}
 	}
 
-	fmt.Printf("[CONVERSATION] agent message %d/3 saved for session %s\n", agentMessageCount, sessionID)
+	// 8. Check if we've reached the limit (4 agent messages = intro + 3 questions)
+	shouldEnd := agentMessageCount >= 4
 
-	// 8. Save conversation history
+	fmt.Printf("[CONVERSATION] agent message %d/%d saved for session %s (should_end: %v)\n",
+		agentMessageCount, 4, sessionID, shouldEnd)
+
+	// 9. Save conversation history
 	historyBytes, _ := json.Marshal(conversationHistory)
 	session.ConversationHistory = datatypes.JSON(historyBytes)
 	database.Db.Save(session)
 
-	// 9. Return success
+	// 10. Return success - signal frontend to end after user's next response
 	c.JSON(http.StatusOK, gin.H{
-		"message":        "Message saved",
-		"message_count":  agentMessageCount,
-		"should_end":     agentMessageCount >= 3,
+		"message":       "Message saved",
+		"message_count": agentMessageCount,
+		"should_end":    shouldEnd,
 	})
 }
 
@@ -354,6 +360,9 @@ You are an expert coding interview evaluator. Analyze the following interview co
 Problem: %s
 Difficulty: %s
 
+Candidate's submitted code:
+%s
+
 Full Conversation:
 %s
 
@@ -381,6 +390,7 @@ Format your response as JSON:
 `,
 		*task.ProblemTitle,
 		*task.ProblemDifficulty,
+		*task.Code,
 		conversationText,
 	)
 

@@ -9,16 +9,10 @@ import (
 
 // TestCrawlProblemDescription tests crawling problem description and constraints
 func TestCrawlProblemDescription(t *testing.T) {
-	// Act: Get and parse problem content
-	content, err := services.GetLeetCodeProblemContents(1)
+	// Act: Fetch the problem with parsed details
+	details, err := services.GetProblemById(1)
 	if err != nil {
-		t.Fatalf("GetLeetCodeProblemContents() error = %v", err)
-	}
-
-	// Parse the HTML content
-	details, err := services.ParseProblemContent(content.Content)
-	if err != nil {
-		t.Fatalf("ParseProblemContent() error = %v", err)
+		t.Fatalf("GetProblemById() error = %v", err)
 	}
 
 	// Assert: Verify description is extracted
@@ -61,22 +55,6 @@ func TestCrawlProblemDescription(t *testing.T) {
 	t.Logf("\nFull Description:\n%s", details.Description)
 }
 
-// TestGetParsedProblemDetails tests the convenience function
-func TestGetParsedProblemDetails(t *testing.T) {
-	details, err := services.GetParsedProblemDetails(1)
-	if err != nil {
-		t.Fatalf("GetParsedProblemDetails() error = %v", err)
-	}
-
-	if details.Description == "" {
-		t.Error("Expected description, got empty string")
-	}
-
-	if len(details.Constraints) == 0 {
-		t.Error("Expected constraints, got empty slice")
-	}
-
-}
 
 // TestParseProblemContentWithSampleHTML tests parsing with sample HTML
 func TestParseProblemContentWithSampleHTML(t *testing.T) {
@@ -96,23 +74,23 @@ func TestParseProblemContentWithSampleHTML(t *testing.T) {
 	</ul>
 	`
 
-	details, err := services.ParseProblemContent(sampleHTML)
+	description, constraints, examples, err := services.ParseProblemContent(sampleHTML)
 	if err != nil {
 		t.Fatalf("ParseProblemContent() error = %v", err)
 	}
 
 	// Verify description
-	if !strings.Contains(strings.ToLower(details.Description), "array") {
-		t.Errorf("Description should contain 'array', got: %s", details.Description)
+	if !strings.Contains(strings.ToLower(description), "array") {
+		t.Errorf("Description should contain 'array', got: %s", description)
 	}
 
 	// Verify constraints
-	if len(details.Constraints) < 2 {
-		t.Errorf("Expected at least 2 constraints, got %d", len(details.Constraints))
+	if len(constraints) < 2 {
+		t.Errorf("Expected at least 2 constraints, got %d", len(constraints))
 	}
 
 	// Verify examples
-	if len(details.Examples) == 0 {
+	if len(examples) == 0 {
 		t.Log("No examples extracted from sample HTML (parsing might need adjustment)")
 	}
 }

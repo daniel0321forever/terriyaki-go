@@ -31,28 +31,26 @@ type Task struct {
 }
 
 /**
- * Create a new task
- * @param title - the title of the task
- * @param description - the description of the task
- * @param url - the url of the task
+ * Create a new placeholder task (problem details will be filled in lazily)
  * @param progressID - the id of the progress
  * @param date - the date of the task
- * @return the created task
+ * @return the created placeholder task
  */
 func CreateTask(
-	title string,
-	description string,
-	url string,
 	userID string,
 	grindID string,
 	date time.Time,
 ) (*Task, error) {
+	emptyTitle := ""
+	emptyDescription := ""
+	emptyURL := ""
+
 	task := Task{
 		ID:                 uuid.New().String(),
 		TaskType:           "leetcode",
-		ProblemTitle:       &title,
-		ProblemDescription: &description,
-		ProblemURL:         &url,
+		ProblemTitle:       &emptyTitle,
+		ProblemDescription: &emptyDescription,
+		ProblemURL:         &emptyURL,
 		UserID:             userID,
 		GrindID:            grindID,
 		Date:               date,
@@ -175,21 +173,21 @@ func setTaskProblemIfNeeded(task *Task) error {
 	}
 
 	// TODO: make this configurable in Task model
-	list_name := "neetcode250"
-	leetcodeProblem, err := services.GetRandomProblemFromList(list_name)
+	listName := "neetcode250"
+	leetcodeProblem, err := services.GetRandomProblemFromList(listName)
 	if err != nil {
 		return err
 	}
 
 	problemTitle = leetcodeProblem.Title
-	problemDescription = "A daily problem from " + list_name
-	problemURL = "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
+	problemDescription = "A daily problem from " + listName
+	problemURL = "https://leetcode.com/problems/" + leetcodeProblem.Slug + "/description"
 	problemDifficulty = leetcodeProblem.Difficulty
 
 	// get topic tag names
 	topicTagNames := []string{}
 	for _, tag := range leetcodeProblem.TopicTags {
-		topicTagNames = append(topicTagNames, tag.Name)
+		topicTagNames = append(topicTagNames, tag)
 	}
 	jsonBytes, err := json.Marshal(topicTagNames)
 	if err != nil {

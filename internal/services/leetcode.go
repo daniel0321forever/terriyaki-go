@@ -17,15 +17,14 @@ import (
 	"golang.org/x/net/html"
 )
 
-// additional (externally defined) metadata from CSV (e.g., leetcode id, topic)
-type CustomProblem struct {
-	ID   int
-	Slug string
-	Tag  string
-}
 
 // ProblemDetails represents parsed problem information from LeetCode HTML
-type ProblemDetails struct {
+type LeetCodeProblem struct {
+	ID          int       `json:"id"`
+	Title       string    `json:"title"`
+	Slug        string    `json:"slug"`
+	Difficulty  string    `json:"difficulty"`
+	TopicTags   []string  `json:"topic_tags"`
 	Description string    `json:"description"`
 	Constraints []string  `json:"constraints"`
 	Examples    []Example `json:"examples"`
@@ -47,24 +46,15 @@ type SimilarProblem struct {
 	Difficulty string `json:"difficulty"`
 }
 
-// ProblemMetadata is kept for backward compatibility but deprecated
-// Use ProblemDetails instead
-type ProblemMetadata struct {
-	descriptions    string
-	constraint      string
-	testcases       string
-	similarProblems []string
-}
-
 var (
 	// loadedProblemLists stores metadata for loaded problem lists
-	loadedProblemLists = make(map[string][]CustomProblem)
+	loadedProblemLists = make(map[string][]LeetCodeProblem)
 	listsMutex         sync.RWMutex
 )
 
 // LoadExternalProblemList loads a problem list from a CSV file and return an array of CustomProblem
 // The CSV should have format: id,slug,tag
-func LoadExternalProblemList(listName string) ([]CustomProblem, error) {
+func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 	// Check if already loaded
 	listsMutex.RLock()
 	if list, exists := loadedProblemLists[listName]; exists {
@@ -99,13 +89,14 @@ func LoadExternalProblemList(listName string) ([]CustomProblem, error) {
 		return nil, fmt.Errorf("failed to read CSV: %w", err)
 	}
 
-	var problems []CustomProblem
+	var problems []LeetCodeProblem
 	for i, record := range records {
 		// Skip header row
 		if i == 0 {
 			continue
 		}
 
+		// Check if we have at least 3 columns (id, slug, tag)
 		if len(record) < 3 {
 			continue
 		}
@@ -115,10 +106,17 @@ func LoadExternalProblemList(listName string) ([]CustomProblem, error) {
 			continue
 		}
 
-		problems = append(problems, CustomProblem{
-			ID:   id,
-			Slug: record[1],
-			Tag:  record[2],
+		// CSV format: id,slug,tag
+		// Only use the columns that exist - other fields will be fetched from API
+		problems = append(problems, LeetCodeProblem{
+			ID:          id,
+			Title:       "", // Will be populated when GetProblemById is called
+			Slug:        record[1], // slug is at index 1
+			Difficulty:  "", // Will be populated when GetProblemById is called
+			TopicTags:   []string{record[2]}, // tag is at index 2
+			Description: "", // Will be populated when GetProblemById is called
+			Constraints: []string{},
+			Examples:    []Example{},
 		})
 	}
 
@@ -129,21 +127,52 @@ func LoadExternalProblemList(listName string) ([]CustomProblem, error) {
 	loadedProblemLists[listName] = problems
 	return problems, nil
 }
-
 // return a problem by problem id shown on LeetCode
-func GetProblemById(id int) (*leetcodeapi.Problem, error) {
+func GetProblemById(id int) (*LeetCodeProblem, error) {
+	problem := &LeetCodeProblem{
+		ID: id,
+		Title: "",
+		Slug: "",
+		Difficulty: "",
+		TopicTags: []string{},
+		Description: "",
+		Constraints: []string{},
+		Examples: []Example{},
+	}
 	problems, err := leetcodeapi.GetAllProblems(id-1, 1) // transform id to zero-index
 
 	if err != nil {
 		return nil, err
 	}
 
-	problem := problems.Problems[0]
-	return &problem, nil
+	problem.Title = problems.Problems[0].Title
+	problem.Slug = problems.Problems[0].TitleSlug
+	problem.Difficulty = problems.Problems[0].Difficulty
+	topicTags := []string{}
+	for _, tag := range problems.Problems[0].TopicTags {
+		topicTags = append(topicTags, tag.Name)
+	}
+	problem.TopicTags = topicTags
+
+	content, err := leetcodeapi.GetProblemContentByTitleSlug(problem.Slug)
+	if err != nil {
+		return nil, err
+	}
+
+	description, constraints, examples, err := ParseProblemContent(content.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	problem.Description = description
+	problem.Constraints = constraints
+	problem.Examples = examples
+
+	return problem, nil
 }
 
 // returns a random problem from the specified list
-func GetRandomProblemFromList(listName string) (*leetcodeapi.Problem, error) {
+func GetRandomProblemFromList(listName string) (*LeetCodeProblem, error) {
 	problems, err := LoadExternalProblemList(listName)
 	if err != nil {
 		return nil, err
@@ -166,65 +195,31 @@ func GetRandomProblemFromList(listName string) (*leetcodeapi.Problem, error) {
 }
 
 // returns a random problem from all LeetCode problems
-func GetRandomLeetCodeProblem() (*leetcodeapi.Problem, error) {
+func GetRandomLeetCodeProblem() (*LeetCodeProblem, error) {
 	offset := rand.Intn(2000) // random int for offset (make sure to seed rand in init or main if needed)
 
-	problem, err := GetProblemById(offset)
-	if err != nil {
-		return nil, err
-	}
-
-	return problem, nil
+	return GetProblemById(offset)
 }
 
-// GetLeetCodeProblemContents fetches the raw HTML content from LeetCode API
-func GetLeetCodeProblemContents(id int) (*leetcodeapi.ProblemContent, error) {
-	problems, err := leetcodeapi.GetAllProblems(id-1, 1) // transform id to zero-index
-
-	if err != nil {
-		return nil, err
-	}
-
-	problem := problems.Problems[0]
-
-	content, err := leetcodeapi.GetProblemContentByTitleSlug(problem.TitleSlug)
-
-	return &content, err
-}
-
-// ParseProblemContent parses HTML content into structured ProblemDetails
-func ParseProblemContent(htmlContent string) (*ProblemDetails, error) {
-	details := &ProblemDetails{
-		Constraints: []string{},
-		Examples:    []Example{},
-	}
+// ParseProblemContent parses HTML content into structured LeetCodeProblem
+func ParseProblemContent(htmlContent string) (string, []string, []Example, error) {
 
 	// Parse HTML
 	doc, err := html.Parse(strings.NewReader(htmlContent))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+		return "", []string{}, []Example{}, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
 	// Extract description
-	details.Description = extractDescription(doc)
+	description := extractDescription(doc)
 
 	// Extract constraints
-	details.Constraints = extractConstraints(doc)
+	constraints := extractConstraints(doc)
 
 	// Extract examples
-	details.Examples = extractExamples(doc)
+	examples := extractExamples(doc)
 
-	return details, nil
-}
-
-// GetParsedProblemDetails fetches and parses problem content into structured format
-func GetParsedProblemDetails(id int) (*ProblemDetails, error) {
-	content, err := GetLeetCodeProblemContents(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return ParseProblemContent(content.Content)
+	return description, constraints, examples, nil
 }
 
 // extractDescription extracts the main problem description from HTML

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/database"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/services"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -174,13 +174,15 @@ func setTaskProblemIfNeeded(task *Task) error {
 		return nil
 	}
 
-	leetcodeProblem, err := utils.GetRandomLeetCodeProblem()
+	// TODO: make this configurable in Task model
+	list_name := "neetcode250"
+	leetcodeProblem, err := services.GetRandomProblemFromList(list_name)
 	if err != nil {
 		return err
 	}
 
 	problemTitle = leetcodeProblem.Title
-	problemDescription = "A daily problem from LeetCode"
+	problemDescription = "A daily problem from " + list_name
 	problemURL = "https://leetcode.com/problems/" + leetcodeProblem.TitleSlug + "/description"
 	problemDifficulty = leetcodeProblem.Difficulty
 

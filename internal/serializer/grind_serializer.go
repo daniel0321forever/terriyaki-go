@@ -55,6 +55,9 @@ func SerializeGrind(user *models.User, grind *models.Grind, simple bool) gin.H {
 		taskTodayRecord = SerializeTask(taskToday)
 	}
 
+	// get today's completion stats (leaderboard)
+	completedCount, totalCount, _ := models.GetTodayTaskCompletionStats(grind.ID)
+
 	return gin.H{
 		"id":           grind.ID,
 		"duration":     grind.Duration,
@@ -64,6 +67,10 @@ func SerializeGrind(user *models.User, grind *models.Grind, simple bool) gin.H {
 		"taskToday":    taskTodayRecord,
 		"progress":     progressTasks,
 		"quitted":      quitted,
+		"todayStats": gin.H{
+			"completed": completedCount,
+			"total":     totalCount,
+		},
 	}
 }
 

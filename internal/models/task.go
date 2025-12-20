@@ -126,6 +126,33 @@ func DeleteTask(id string) error {
 	return result.Error
 }
 
+/**
+ * Get today's task completion stats for a grind
+ * @param grindID - the id of the grind
+ * @return the number of completed tasks and total participants
+ */
+func GetTodayTaskCompletionStats(grindID string) (completed int, total int, err error) {
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour).Add(-time.Hour * 1)
+	endOfToday := startOfToday.Add(time.Hour * 24)
+
+	// Get all tasks for today in this grind
+	var tasks []Task
+	result := database.Db.Where("grind_id = ? AND date >= ? AND date <= ?", grindID, startOfToday, endOfToday).Find(&tasks)
+	if result.Error != nil {
+		return 0, 0, result.Error
+	}
+
+	total = len(tasks)
+	completed = 0
+	for _, task := range tasks {
+		if task.Completed {
+			completed++
+		}
+	}
+
+	return completed, total, nil
+}
+
 func setTaskProblemIfNeeded(task *Task) error {
 	if *task.ProblemTitle != "" {
 		return nil

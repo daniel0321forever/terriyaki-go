@@ -11,6 +11,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/serializer"
 	"github.com/daniel0321forever/terriyaki-go/internal/utils"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func GetTaskAPI(c *gin.Context) {
@@ -32,6 +33,46 @@ func GetTaskAPI(c *gin.Context) {
 			"message":   "Task not found",
 			"task":      nil,
 			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Task found", "task": serializer.SerializeTask(task)})
+}
+
+func GetTodayTaskAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	grind, err := models.GetOngoingGrindByUserID(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message":   "Grind not found",
+			"task":      nil,
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	task, err := models.GetTodayTask(userID, grind.ID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "No task found for today",
+				"task":    nil,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "Error fetching task",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
 		})
 		return
 	}

@@ -34,5 +34,14 @@ func SerializeUserAsGrindParticipant(user *models.User, grind *models.Grind) gin
 	var serializedParticipateRecord gin.H = SerializeParticipateRecord(participateRecord)
 	serializedParticipateRecord["username"] = user.Username
 
+	// Get today's task completion status for this participant
+	todayTask, err := models.GetTodayTask(user.ID, grind.ID)
+	if err != nil {
+		// No task found or error - mark as not completed
+		serializedParticipateRecord["todayTaskCompleted"] = false
+	} else {
+		serializedParticipateRecord["todayTaskCompleted"] = todayTask.Completed
+	}
+
 	return serializedParticipateRecord
 }

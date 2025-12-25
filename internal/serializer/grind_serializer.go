@@ -86,3 +86,11 @@ func SerializeGrinds(user *models.User, grinds []models.Grind, simple bool) []gi
 	}
 	return grindsRecords
 }
+
+func SerializeGrindsInMap(user *models.User, grinds []models.Grind, simple bool) map[string]gin.H {
+	grindsRecords := make(map[string]gin.H)
+	for _, grind := range grinds {
+		grindsRecords[grind.ID] = SerializeGrind(user, &grind, simple)
+	}
+	return grindsRecords
+}

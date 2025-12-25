@@ -34,6 +34,7 @@ func main() {
 	router.POST("/api/v1/logout", api.LogoutAPI)
 	router.GET("/api/v1/verify-token", api.VerifyTokenAPI)
 	router.DELETE("/api/v1/users/delete", api.DeleteUserAPI)
+	router.GET("/api/v1/users/exists", api.CheckUserExistsAPI)
 	router.POST("/api/v1/grinds", api.CreateGrindAPI)
 	router.GET("/api/v1/grinds", api.GetAllUserGrindsAPI)
 	router.DELETE("/api/v1/grinds/delete-all", api.DeleteAllGrindsAPI)
@@ -52,6 +53,9 @@ func main() {
 	router.POST("/api/v1/interviews/start", api.StartInterviewAPI)
 	router.POST("/api/v1/interviews/:id/response", api.SaveAgentResponseAPI)
 	router.POST("/api/v1/interviews/:id/end", api.EndInterviewAPI)
+
+	router.POST("/api/v2/login", api.LoginAPIV2)
+	router.GET("/api/v2/verify-token", api.VerifyTokenAPIV2)
 
 	router.Run(":8080")
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
@@ -36,8 +35,6 @@ func UpdateProfileAPI(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
 		return
 	}
-
-	fmt.Println("body", body)
 
 	username := body["username"]
 	avatar := body["avatar"]

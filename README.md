@@ -85,3 +85,13 @@ Go backend service for the Terriyaki application.
        ↓
    ElevenLabs servers can now reach it!
    ```
+
+## Features
+
+### Voice Changer
+
+The backend includes a Voice Changer API that integrates with ElevenLabs Speech-to-Speech service. This allows users to convert audio between different voices while preserving emotion and delivery.
+
+**API Endpoint**: `POST /api/v1/voice/convert`
+
+For detailed documentation, see [docs/VOICE_CHANGER.md](docs/VOICE_CHANGER.md).

@@ -52,6 +52,7 @@ func main() {
 	router.POST("/api/v1/interviews/start", api.StartInterviewAPI)
 	router.POST("/api/v1/interviews/:id/response", api.SaveAgentResponseAPI)
 	router.POST("/api/v1/interviews/:id/end", api.EndInterviewAPI)
+	router.POST("/api/v1/voice/convert", api.ConvertVoiceAPI)
 
 	router.Run(":8080")
 }

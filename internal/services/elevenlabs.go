@@ -115,6 +115,96 @@ func (s *ElevenLabsService) SpeechToText(audioData []byte) (string, error) {
 	return result.Text, nil
 }
 
+// SpeechToSpeech converts audio to a different voice while preserving emotion and delivery
+// Parameters:
+//   - voiceID: Target voice ID to convert to
+//   - audioData: Source audio file bytes
+//   - modelID: Model to use (default: "eleven_multilingual_sts_v2")
+//   - style: Style parameter 0.0-1.0 (default: 0.0)
+//   - stability: Stability parameter 0.0-1.0 (default: 1.0)
+//   - removeBackgroundNoise: Whether to remove background noise (default: false)
+func (s *ElevenLabsService) SpeechToSpeech(
+	voiceID string,
+	audioData []byte,
+	modelID string,
+	style float64,
+	stability float64,
+	removeBackgroundNoise bool,
+) ([]byte, error) {
+	url := fmt.Sprintf("%s/speech-to-speech/%s", s.baseURL, voiceID)
+
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Set default model if not provided
+	if modelID == "" {
+		modelID = "eleven_multilingual_sts_v2"
+	}
+
+	// Add model_id as a form field
+	err := writer.WriteField("model_id", modelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write model_id field: %w", err)
+	}
+
+	// Add style parameter (0.0-1.0)
+	styleStr := fmt.Sprintf("%.2f", style)
+	err = writer.WriteField("style", styleStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write style field: %w", err)
+	}
+
+	// Add stability parameter (0.0-1.0)
+	stabilityStr := fmt.Sprintf("%.2f", stability)
+	err = writer.WriteField("stability", stabilityStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write stability field: %w", err)
+	}
+
+	// Add remove_background_noise parameter
+	noiseRemoval := "false"
+	if removeBackgroundNoise {
+		noiseRemoval = "true"
+	}
+	err = writer.WriteField("remove_background_noise", noiseRemoval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write remove_background_noise field: %w", err)
+	}
+
+	// Add audio file (API expects field name "audio")
+	part, err := writer.CreateFormFile("audio", "audio.mp3")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %w", err)
+	}
+	if _, err := part.Write(audioData); err != nil {
+		return nil, fmt.Errorf("failed to write audio data: %w", err)
+	}
+
+	writer.Close()
+
+	req, err := http.NewRequest("POST", url, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("xi-api-key", s.apiKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
 // func main() {
 // 	// Load .env file from backend root directory
 // 	// Get the directory where this file is located

@@ -396,6 +396,6 @@ func CheckUserExistsAPI(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User exists",
-		"valid":   true,
+		"exists":  true,
 	})
 }

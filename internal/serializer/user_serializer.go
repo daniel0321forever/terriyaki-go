@@ -42,8 +42,8 @@ func SerializeUserAsGrindParticipant(user *models.User, grind *models.Grind) gin
 	// get progress tasks
 	tasks := []models.Task{}
 
-	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
-	result := database.Db.Where("user_id = ? AND grind_id = ? AND date <= ? AND completed = ?", user.ID, grind.ID, startOfToday, false).Order("date ASC").Find(&tasks)
+	startOfToday := time.Now().Truncate(24 * time.Hour)
+	result := database.Db.Where("user_id = ? AND grind_id = ? AND date < ? AND completed = ?", user.ID, grind.ID, startOfToday, false).Order("date ASC").Find(&tasks)
 	if result.Error != nil {
 		return gin.H{}
 	}

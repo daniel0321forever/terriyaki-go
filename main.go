@@ -41,6 +41,7 @@ func main() {
 	router.GET("/api/v1/grinds/current", api.GetUserCurrentGrindAPI)
 	router.GET("/api/v1/grinds/:id", api.GetGrindAPI)
 	router.POST("/api/v1/grinds/:id/quit", api.QuitGrindAPI)
+	router.GET("/api/v1/grinds/:id/progress", api.GetProgressRecordsAPI)
 	router.POST("/api/v1/tasks/finish", api.FinishTodayTaskAPI)
 	router.GET("/api/v1/tasks/today", api.GetTodayTaskAPI)
 	router.GET("/api/v1/tasks/:id", api.GetTaskAPI)

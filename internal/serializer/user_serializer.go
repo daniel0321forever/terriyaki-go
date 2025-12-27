@@ -1,6 +1,9 @@
 package serializer
 
 import (
+	"time"
+
+	"github.com/daniel0321forever/terriyaki-go/internal/database"
 	"github.com/daniel0321forever/terriyaki-go/internal/models"
 	"github.com/gin-gonic/gin"
 )
@@ -33,6 +36,20 @@ func SerializeUserAsGrindParticipant(user *models.User, grind *models.Grind) gin
 
 	var serializedParticipateRecord gin.H = SerializeParticipateRecord(participateRecord)
 	serializedParticipateRecord["username"] = user.Username
+	serializedParticipateRecord["avatar"] = user.Avatar
+	serializedParticipateRecord["email"] = user.Email
+
+	// get progress tasks
+	tasks := []models.Task{}
+
+	startOfToday := time.Now().Truncate(24 * time.Hour)
+	result := database.Db.Where("user_id = ? AND grind_id = ? AND date < ? AND completed = ?", user.ID, grind.ID, startOfToday, false).Order("date ASC").Find(&tasks)
+	if result.Error != nil {
+		return gin.H{}
+	}
+
+	serializedParticipateRecord["missedDays"] = len(tasks)
+	serializedParticipateRecord["totalPenalty"] = len(tasks) * int(grind.Budget) / int(grind.Duration)
 
 	// Get today's task completion status for this participant
 	todayTask, err := models.GetTodayTask(user.ID, grind.ID)

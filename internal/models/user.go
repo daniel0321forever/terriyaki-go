@@ -109,16 +109,16 @@ func UpdateUser(
 ) (*User, error) {
 	var user User
 	updates := make(map[string]any)
-	if username != nil {
+	if username != nil && *username != "" && *username != "none" {
 		updates["username"] = *username
 	}
-	if email != nil {
+	if email != nil && *email != "" && *email != "none" {
 		updates["email"] = *email
 	}
-	if avatar != nil {
+	if avatar != nil && *avatar != "" && *avatar != "none" {
 		updates["avatar"] = *avatar
 	}
-	if password != nil {
+	if password != nil && *password != "" && *password != "none" {
 		updates["password"] = *password
 	}
 	result := database.Db.Model(&user).Where("id = ?", id).Updates(updates)

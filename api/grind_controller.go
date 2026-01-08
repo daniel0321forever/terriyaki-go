@@ -339,3 +339,46 @@ func QuitGrindAPI(c *gin.Context) {
 		"participateRecord": serializer.SerializeParticipateRecord(participateRecord),
 	})
 }
+
+func GetProgressRecordsAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	grindID := c.Param("id")
+	participantID := c.Query("participantId")
+	if participantID == "" {
+		participantID = userID
+	}
+
+	// check if the user is a participant of the grind
+	grind, err := models.GetGrind(grindID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message":   "Grind not found",
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	user, err := models.GetUser(participantID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message":   "User not found",
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	progressRecords := serializer.SerializeGrindTasksForUser(user, grind)
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Progress records fetched successfully",
+		"progressRecords": progressRecords,
+	})
+}

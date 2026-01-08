@@ -285,3 +285,53 @@ func RejectInvitationAPI(c *gin.Context) {
 		"data":    serializer.SerializeMessage(message),
 	})
 }
+
+/**
+ * Get all the messages that the user has sent
+ * @param c - the context
+ * @return the messages that the user has sent
+ */
+func GetSentMessageAPI(c *gin.Context) {
+	offsetStr := c.DefaultQuery("offset", "0")
+	offset, _ := strconv.Atoi(offsetStr)
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	_, err = models.GetUser(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message":   "user not found",
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	messages, err := models.GetAllMessageFromSender(userID, offset, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "internal server error",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	serializedMessages := []gin.H{}
+	for _, message := range messages {
+		serializedMessages = append(serializedMessages, serializer.SerializeMessage(&message))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Messages fetched successfully",
+		"data":    serializedMessages,
+	})
+}

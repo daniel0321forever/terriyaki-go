@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/daniel0321forever/terriyaki-go/internal/services"
+	"github.com/daniel0321forever/terriyaki-go/internal/utils"
 )
 
 // TestCrawlProblemDescription tests crawling problem description and constraints
 func TestCrawlProblemDescription(t *testing.T) {
 	// Act: Fetch the problem with parsed details
-	details, err := services.GetProblemById(1)
+	details, err := utils.GetProblemById(1)
 	if err != nil {
 		t.Fatalf("GetProblemById() error = %v", err)
 	}
@@ -55,7 +55,6 @@ func TestCrawlProblemDescription(t *testing.T) {
 	t.Logf("\nFull Description:\n%s", details.Description)
 }
 
-
 // TestParseProblemContentWithSampleHTML tests parsing with sample HTML
 func TestParseProblemContentWithSampleHTML(t *testing.T) {
 	sampleHTML := `
@@ -74,7 +73,7 @@ func TestParseProblemContentWithSampleHTML(t *testing.T) {
 	</ul>
 	`
 
-	description, constraints, examples, err := services.ParseProblemContent(sampleHTML)
+	description, constraints, examples, err := utils.ParseProblemContent(sampleHTML)
 	if err != nil {
 		t.Fatalf("ParseProblemContent() error = %v", err)
 	}

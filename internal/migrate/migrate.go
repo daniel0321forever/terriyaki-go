@@ -13,6 +13,7 @@ func MigrateDatabase() error {
 		&models.ParticipateRecord{},
 		&models.Message{},
 		&models.InterviewSession{},
+		&models.StripePaymentInfo{},
 	)
 	if err != nil {
 		return err

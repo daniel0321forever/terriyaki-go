@@ -39,7 +39,7 @@ func UpdateProfileAPI(c *gin.Context) {
 	username := body["username"]
 	avatar := body["avatar"]
 
-	user, err := models.UpdateUser(userID, &username, nil, &avatar, nil)
+	user, err := models.UpdateUser(userID, &username, nil, &avatar, nil, nil, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message":   "internal server error",

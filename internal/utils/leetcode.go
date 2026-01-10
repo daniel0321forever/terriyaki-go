@@ -1,4 +1,4 @@
-package services
+package utils
 
 import (
 	"encoding/csv"
@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,7 +15,6 @@ import (
 	"github.com/dustyRAIN/leetcode-api-go/leetcodeapi"
 	"golang.org/x/net/html"
 )
-
 
 // ProblemDetails represents parsed problem information from LeetCode HTML
 type LeetCodeProblem struct {
@@ -73,9 +71,11 @@ func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 	}
 
 	// Get the directory where this file is located
-	_, filename, _, _ := runtime.Caller(0)
-	utilsDir := filepath.Dir(filename)
-	csvPath := filepath.Join(utilsDir, listName+".csv")
+	utilsDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
+	}
+	csvPath := filepath.Join(utilsDir, "assets", listName+".csv")
 
 	file, err := os.Open(csvPath)
 	if err != nil {
@@ -110,11 +110,11 @@ func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 		// Only use the columns that exist - other fields will be fetched from API
 		problems = append(problems, LeetCodeProblem{
 			ID:          id,
-			Title:       "", // Will be populated when GetProblemById is called
-			Slug:        record[1], // slug is at index 1
-			Difficulty:  "", // Will be populated when GetProblemById is called
+			Title:       "",                  // Will be populated when GetProblemById is called
+			Slug:        record[1],           // slug is at index 1
+			Difficulty:  "",                  // Will be populated when GetProblemById is called
 			TopicTags:   []string{record[2]}, // tag is at index 2
-			Description: "", // Will be populated when GetProblemById is called
+			Description: "",                  // Will be populated when GetProblemById is called
 			Constraints: []string{},
 			Examples:    []Example{},
 		})
@@ -127,17 +127,18 @@ func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 	loadedProblemLists[listName] = problems
 	return problems, nil
 }
+
 // return a problem by problem id shown on LeetCode
 func GetProblemById(id int) (*LeetCodeProblem, error) {
 	problem := &LeetCodeProblem{
-		ID: id,
-		Title: "",
-		Slug: "",
-		Difficulty: "",
-		TopicTags: []string{},
+		ID:          id,
+		Title:       "",
+		Slug:        "",
+		Difficulty:  "",
+		TopicTags:   []string{},
 		Description: "",
 		Constraints: []string{},
-		Examples: []Example{},
+		Examples:    []Example{},
 	}
 	problems, err := leetcodeapi.GetAllProblems(id-1, 1) // transform id to zero-index
 

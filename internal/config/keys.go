@@ -8,4 +8,8 @@ var (
 	MESSAGE_TYPE_INVITATION          string = "invitation"
 	MESSAGE_TYPE_INVITATION_ACCEPTED string = "invitation_accepted"
 	MESSAGE_TYPE_INVITATION_REJECTED string = "invitation_rejected"
+
+	REDIS_PAYMENT_INFOS_KEY string = "redis:paymentInfos:"
+
+	OS_ENV_STRIPE_SECRET_KEY string = "STRIPE_SECRET_KEY"
 )

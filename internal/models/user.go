@@ -13,13 +13,15 @@ import (
 
 type User struct {
 	gorm.Model
-	ID        string    `json:"id" gorm:"primaryKey"`
-	Username  string    `json:"username" gorm:"not null"`
-	Email     string    `json:"email" gorm:"not null;unique"`
-	Avatar    string    `json:"avatar" gorm:""`
-	Password  string    `json:"password" gorm:"not null"`
-	CreatedAt time.Time `json:"created_at" gorm:"not null"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"not null"`
+	ID                     string    `json:"id" gorm:"primaryKey"`
+	Username               string    `json:"username" gorm:"not null"`
+	Email                  string    `json:"email" gorm:"not null;unique"`
+	Avatar                 string    `json:"avatar" gorm:""`
+	Password               string    `json:"password" gorm:"not null"`
+	StripeCustomerID       string    `json:"stripe_customer_id" gorm:""`
+	DefaultPaymentMethodID string    `json:"default_payment_method_id" gorm:""`
+	CreatedAt              time.Time `json:"created_at" gorm:"not null"`
+	UpdatedAt              time.Time `json:"updated_at" gorm:"not null"`
 }
 
 /**
@@ -106,6 +108,8 @@ func UpdateUser(
 	email *string,
 	avatar *string,
 	password *string,
+	stripeCustomerID *string,
+	defaultPaymentMethodID *string,
 ) (*User, error) {
 	var user User
 	updates := make(map[string]any)
@@ -120,6 +124,12 @@ func UpdateUser(
 	}
 	if password != nil && *password != "" && *password != "none" {
 		updates["password"] = *password
+	}
+	if stripeCustomerID != nil && *stripeCustomerID != "" && *stripeCustomerID != "none" {
+		updates["stripe_customer_id"] = *stripeCustomerID
+	}
+	if defaultPaymentMethodID != nil && *defaultPaymentMethodID != "" && *defaultPaymentMethodID != "none" {
+		updates["default_payment_method_id"] = *defaultPaymentMethodID
 	}
 	result := database.Db.Model(&user).Where("id = ?", id).Updates(updates)
 	return &user, result.Error

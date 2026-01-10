@@ -11,8 +11,12 @@ import (
 
 // var host string = "http://34.222.135.134:8080"
 var host string = "http://localhost:8080"
-var testAccount string = "secondtest"
-var testEmail string = "secondtest@test.com"
+
+// var testAccount string = "secondtest"
+// var testEmail string = "secondtest@test.com"
+// var testPassword string = "test"
+var testAccount string = "test"
+var testEmail string = "test@test.com"
 var testPassword string = "test"
 var testGrindID string = "44c1c728-54ad-4809-ba30-a8cc23aea4f1"
 
@@ -253,6 +257,63 @@ func testCreateInvitationAPI() {
 	fmt.Println("Response body:", string(bodyResponse))
 }
 
+func testPay() {
+	// get request body
+	body := map[string]any{
+		"amount": 100,
+	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		fmt.Println("could not marshal request body", err)
+		return
+	}
+
+	// request
+	req, err := http.NewRequest("POST", host+"/api/v1/payments/payment-intent", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		fmt.Println("could not create request", err)
+		return
+	}
+
+	// send request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("could not read body", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// get response body
+	bodyResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("could not read body", err)
+		return
+	}
+	fmt.Println("Response body:", string(bodyResponse))
+}
+
+func testForceChargingAPI() {
+	token := testLoginAPI()
+	if token == "" {
+		fmt.Println("could not get token")
+		return
+	}
+	req, err := http.NewRequest("POST", host+"/api/v1/payments/force-charging", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("could not send request", err)
+		return
+	}
+	defer resp.Body.Close()
+	bodyResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("could not read body", err)
+		return
+	}
+	fmt.Println("Response body:", string(bodyResponse))
+}
+
 func main() {
 	// testRunning()
 	// testRegisterAPI()
@@ -262,5 +323,6 @@ func main() {
 	// testDeleteUserAPI()
 	// testDeleteAllGrindsAPI()
 	// testCreateInvitationAPI()
-
+	// testPay()
+	testForceChargingAPI()
 }

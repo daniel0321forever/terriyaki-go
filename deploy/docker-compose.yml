@@ -29,5 +29,17 @@ services:
         options:
             max-size: "50m"
 
+    terriyaki-nginx:
+        image: nginx:latest
+        container_name: terriyaki-nginx
+        volumes:
+            - ./nginx.conf:/etc/nginx/nginx.conf
+            - /etc/letsencrypt/live/miutech.cloud/fullchain.pem:/etc/nginx/ssl/fullchain.pem
+            - /etc/letsencrypt/live/miutech.cloud/privkey.pem:/etc/nginx/ssl/privkey.pem
+        ports:
+            - "9090:9090"
+        depends_on:
+            - terriyaki-go
+
 volumes:
   terriyaki-data:

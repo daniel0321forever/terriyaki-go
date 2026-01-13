@@ -56,13 +56,13 @@ func main() {
 	router.POST("/api/v1/interviews/:id/response", api.SaveAgentResponseAPI)
 	router.POST("/api/v1/interviews/:id/end", api.EndInterviewAPI)
 	router.PATCH("/api/v1/profile", api.UpdateProfileAPI)
-	router.POST("api/v1/payments/payment-intent", api.PaymentIntentAPI)
-	router.POST("api/v1/payments/save-card-intent", api.SaveCardIntentAPI)
-	router.POST("api/v1/payments/save-card", api.SaveCardAPI)
-	router.POST("api/v1/charges/dued", api.ForceInvestigateDuedPenaltyAPI)
-	router.GET("api/v1/payments/methods", api.GetAvailablePaymentMethodsAPI)
-	router.POST("api/v1/payments/methods/select-default", api.SelectPaymentMethodAPI)
-	router.POST("api/v1/payments/force-charging", api.TestForceChargingAPI) // TODO: for testing only
+	router.POST("/api/v1/payments/payment-intent", api.PaymentIntentAPI)
+	router.POST("/api/v1/payments/save-card-intent", api.SaveCardIntentAPI)
+	router.POST("/api/v1/payments/save-card", api.SaveCardAPI)
+	router.POST("/api/v1/charges/dued", api.ForceInvestigateDuedPenaltyAPI)
+	router.GET("/api/v1/payments/methods", api.GetAvailablePaymentMethodsAPI)
+	router.POST("/api/v1/payments/methods/select-default", api.SelectPaymentMethodAPI)
+	router.POST("/api/v1/payments/force-charging", api.TestForceChargingAPI) // TODO: for testing only
 
 	router.POST("/api/v2/login", api.LoginAPIV2)
 	router.GET("/api/v2/verify-token", api.VerifyTokenAPIV2)

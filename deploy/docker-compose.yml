@@ -4,8 +4,7 @@ services:
   terriyaki-db:
     image: postgres:15
     container_name: terriyaki-db
-    ports:
-      - "5432:5432"
+    restart: always
     env_file:
       - ../.env
     volumes:
@@ -14,8 +13,8 @@ services:
   terriyaki-go:
     build: ../.
     container_name: terriyaki-go
-    ports:
-      - "8080:8080"
+    restart: always
+    command: ["/terriyaki_backend"]
     volumes:
       - ../.:/src
     env_file:
@@ -32,6 +31,7 @@ services:
   terriyaki-nginx:
       image: nginx:latest
       container_name: terriyaki-nginx
+      restart: unless-stopped
       volumes:
           - ./nginx.conf:/etc/nginx/nginx.conf
           - /etc/letsencrypt/live/terriyaki.space/fullchain.pem:/etc/nginx/ssl/fullchain.pem

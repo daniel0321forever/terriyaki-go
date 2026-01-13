@@ -23,6 +23,8 @@ WORKDIR /
 
 COPY --from=build-stage /terriyaki_backend /terriyaki_backend
 
+COPY assets ./assets
+
 EXPOSE 8080
 
 USER nonroot:nonroot

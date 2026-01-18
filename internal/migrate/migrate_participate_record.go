@@ -3,13 +3,13 @@ package migrate
 import (
 	"fmt"
 
-	"github.com/daniel0321forever/terriyaki-go/internal/database"
-	"github.com/daniel0321forever/terriyaki-go/internal/models"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 )
 
 func MigrateParticipateRecord() error {
 	var count int64
-	result := database.Db.Table("participate_records").Count(&count)
+	result := postgres.Db.Table("participate_records").Count(&count)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -25,13 +25,13 @@ func MigrateParticipateRecord() error {
 	}
 
 	var oldParticipants []OldGrindParticipant
-	result = database.Db.Table("grind_participants").Find(&oldParticipants)
+	result = postgres.Db.Table("grind_participants").Find(&oldParticipants)
 	if result.Error != nil {
 		return result.Error
 	}
 
 	for _, old := range oldParticipants {
-		_, err := models.CreateParticipateRecord(old.UserID, old.GrindID)
+		_, err := entities.NewParticipation(old.UserID, old.GrindID)
 		if err != nil {
 			fmt.Println("Error creating participant record: ", err)
 			return err

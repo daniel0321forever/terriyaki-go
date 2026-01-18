@@ -1,18 +1,17 @@
 package migrate
 
 import (
-	"github.com/daniel0321forever/terriyaki-go/internal/database"
-	"github.com/daniel0321forever/terriyaki-go/internal/models"
+	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 )
 
 func MigrateDatabase() error {
-	err := database.Db.AutoMigrate(
-		&models.User{},
-		&models.Grind{},
-		&models.Task{},
-		&models.ParticipateRecord{},
-		&models.Message{},
-		&models.InterviewSession{},
+	err := postgres.Db.AutoMigrate(
+		&postgres.UserSchema{},
+		&postgres.GrindSchema{},
+		&postgres.TaskSchema{},
+		&postgres.ParticipationSchema{},
+		&postgres.MessageSchema{},
+		&postgres.InterviewSessionSchema{},
 	)
 	if err != nil {
 		return err

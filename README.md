@@ -2,6 +2,9 @@
 
 Go backend service for the Terriyaki application.
 
+## Domain-Driven Design
+- Aggregate Root: Grind
+  - If deleting a Grind means the Tasks and Participations are now meaningless, then Grind is your Aggregate Root.
 ## Quick Start
 ### Prerequisites
 
@@ -65,7 +68,7 @@ Go backend service for the Terriyaki application.
 
 4. **Run the backend server:**
    ```bash
-   go run main.go
+   go run internal/cmd/api_server/main.go
    ```
 
    The backend will start on **http://localhost:8080**

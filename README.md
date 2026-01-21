@@ -2,9 +2,179 @@
 
 Go backend service for the Terriyaki application.
 
-## Domain-Driven Design
-- Aggregate Root: Grind
-  - If deleting a Grind means the Tasks and Participations are now meaningless, then Grind is your Aggregate Root.
+## Architecture
+This backend follows **Domain-Driven Design (DDD)** principles with a clean architecture structure. The codebase is organized into distinct layers, each with clear responsibilities.
+
+```bash
+internal/
+├── domain/ # Domain Layer (Core Business Logic)
+│ ├── entities/ # Domain entities (business objects)
+│ └── repositories/ # Repository interfaces (abstractions)
+│
+├── application/ # Application Layer (Use Cases)
+│ ├── dto/ # Data Transfer Objects (API contracts)
+│ ├── mappers/ # Entity to DTO converters
+│ └── services/ # Application services (orchestration)
+│
+├── infrastructure/ # Infrastructure Layer (Technical Details)
+│ └── db/postgres/ # Repository implementations (GORM)
+│
+└── interface/api/ # HTTP controllers (Gin handlers)
+```
+### Layer Responsibilities
+#### 1. Domain Layer ([internal/domain/](internal/domain/))
+
+> **Purpose**: Core business logic and domain concepts.
+
+##### **Entities** ([internal/domain/entities](internal/domain/entities)):
+- Pure business objects with no infrastructure dependencies
+- Validation can be placed
+- Use factory pattern constructors (e.g., `NewUser()`, `NewGrind()`)
+- [Example](internal/domain/entities/user.go):
+   ```go
+   type User struct {
+         ID             string
+         Username       string
+         Email          string
+         Avatar         string
+         HashedPassword string
+   }
+
+   func NewUser(username, email, hashedPassword, avatar string) (*User, error) {
+         // Validation logic here
+         return &User{...}, nil
+   }
+   ```
+##### **Repository Interfaces** ([internal/domain/repositories/](internal/domain/repositories/)):
+- Define *contracts* for data access
+- No implementation details (interfaces only)
+- [Example](internal/domain/repositories/user_repository.go):
+  ```go
+  type UserRepository interface {
+      FindById(id string) (*entities.User, error)
+      FindByEmail(email string) (*entities.User, error)
+      Create(user *entities.User) error
+      Delete(id string) error
+  }
+  ```
+#### 2. Application Layer (`internal/application/`)
+
+> **Purpose**: Orchestrates domain objects to fulfill use cases.
+##### **Services** [internal/application/services/](internal/application/services/):
+- Orchestrate domain objects
+- Accept and return **DTOs** instead of entities
+- Handle business workflows
+- Example:
+   ```go
+  type UserService struct {
+      userRepo repositories.UserRepository
+  }
+
+  func (s *UserService) CreateUser(request dto.CreateUserDTO) (*dto.UserDTO, error) {
+      // 1. Business logic
+      // 2. Create entity
+      // 3. Save via repository
+      // 4. Return DTO
+  }
+  ```
+
+##### **DTOs** ([internal/application/dto/](internal/application/dto/)):
+- Data Transfer Objects for *service*-level input/output
+- [Example](internal/application/dto/user_dto.go):
+  ```go
+  /*DTO*/
+  // Input DTO
+  type CreateUserDTO struct {
+      Username string `json:"username" validate:"required"`
+      Email    string `json:"email" validate:"required,email"`
+      Password string `json:"password" validate:"required,min=6"`
+      Avatar   string `json:"avatar,omitempty"`
+  }
+
+  // Output DTO
+  type UserDTO struct {
+      ID       string `json:"id"`
+      Username string `json:"username"`
+      Email    string `json:"email"`
+      Avatar   string `json:"avatar"`
+  }
+  /*service*/
+   func (s *UserService) GetUser(request dto.GetUserDTO) (*dto.UserDTO, error) {
+      user, err := s.userRepo.FindById(request.UserID)
+      if err != nil {
+         return nil, errors.New("user not found")
+      }
+      return mappers.UserToUserDTO(user), nil
+   }
+
+  ```
+##### **Mappers** [internal/application/mappers/](internal/application/mappers/):
+- Convert *entities* to *DTOs*
+- Centralized conversion logic makes entity to DTO transfer easier for nested entities such as [`Grind`](internal/domain/entities/grind.go)
+- [Example](internal/application/mappers/user_mapper.go):
+   ```go
+  func UserToUserDTO(user *entities.User) *dto.UserDTO {
+      return &dto.UserDTO{
+          ID:       user.ID,
+          Username: user.Username,
+          Email:    user.Email,
+          Avatar:   user.Avatar,
+      }
+  }
+  ```
+
+#### 3. Infrastructure Layer [internal/infrastructure](internal/infrastructure/)
+
+> **Purpose**: Implements technical details (database, external APIs, etc.)
+
+##### **Repository Implementations** [internal/infrastructure/db/postgres/](internal/infrastructure/db/postgres/):
+- Implement [*repository interfaces*](internal/domain/repositories/)
+- Handle database-specific code (GORM)
+- Map between database schemas and entities
+- [Example](internal/infrastructure/db/postgres/user_repository_impl.go):
+  ```go
+  type GormUserRepository struct {
+      db *gorm.DB
+  }
+
+  func (r *GormUserRepository) FindById(id string) (*entities.User, error) {
+      // GORM implementation
+  }
+  ```
+
+#### 4. Interface Layer [internal/interface](internal/interface/)
+
+> **Purpose**: Handles HTTP requests and responses.
+
+##### **Controllers** [internal/interface/api](internal/interface/api/):
+- Handle HTTP routing
+- Parse request bodies into DTOs
+- Call services with DTOs
+- Return JSON responses
+- [Example](internal/interface/api/user_controller.go):
+   ```go
+  func (ctrl *UserController) RegisterAPI(c *gin.Context) {
+      var body dto.CreateUserDTO
+      if err := c.ShouldBindJSON(&body); err != nil {
+          c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+          return
+      }
+
+      userDTO, err := ctrl.userService.CreateUser(body)
+      if err != nil {
+          c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+          return
+      }
+
+      c.JSON(http.StatusOK, gin.H{"user": userDTO})
+  }
+  ```
+
+### Others
+#### Aggregate Roots
+- **Grind** is the main aggregate root
+- Deleting a Grind should probably also delete Tasks and Participations
+
 ## Quick Start
 ### Prerequisites
 

@@ -18,11 +18,9 @@ import (
  */
 func SerializeParticipateRecord(participateRecord *models.ParticipateRecord) gin.H {
 	return gin.H{
-		"id":           participateRecord.UserID,
-		"grindID":      participateRecord.GrindID,
-		"missedDays":   participateRecord.MissedDays,
-		"totalPenalty": participateRecord.TotalPenalty,
-		"quitted":      participateRecord.Quitted,
-		"quittedAt":    participateRecord.QuittedAt,
+		"id":        participateRecord.UserID,
+		"grindID":   participateRecord.GrindID,
+		"quitted":   participateRecord.Quitted,
+		"quittedAt": participateRecord.QuittedAt,
 	}
 }

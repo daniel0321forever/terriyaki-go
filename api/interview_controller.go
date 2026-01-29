@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -255,6 +256,261 @@ func EndInterviewAPI(c *gin.Context) {
 		"session_id": sessionID,
 		"transcript": session.ConversationHistory,
 		"evaluation": evaluation,
+	})
+}
+
+// UploadInterviewAudioAPI uploads the recorded interview audio for a session.
+//
+// Form-data:
+// - audio: file (required)
+//
+// Returns:
+// - audio_url: path under /uploads to access the file
+func UploadInterviewAudioAPI(c *gin.Context) {
+	// 1. Authenticate user
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	sessionID := c.Param("id")
+
+	// 2. Get interview session
+	session, err := models.GetInterviewSession(sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":     "session not found",
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+
+	// 3. Verify session belongs to user
+	if session.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// 4. Read uploaded file
+	fileHeader, err := c.FormFile("audio")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "audio file is required",
+			"errorCode": config.ERROR_CODE_BAD_REQUEST,
+		})
+		return
+	}
+
+	// 5. Decide file extension (default to .webm if missing)
+	ext := filepath.Ext(fileHeader.Filename)
+	if ext == "" {
+		ext = ".webm"
+	}
+
+	// 6. Save file to local storage (MVP)
+	dir := filepath.Join("uploads", "interviews")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "failed to create uploads directory",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	filename := fmt.Sprintf("%s_%d%s", sessionID, time.Now().UnixNano(), ext)
+	dst := filepath.Join(dir, filename)
+	if err := c.SaveUploadedFile(fileHeader, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "failed to save audio file",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	publicPath := "/uploads/interviews/" + filename
+	session.AudioRecordingURL = publicPath
+	database.Db.Save(session)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Audio uploaded successfully",
+		"session_id": sessionID,
+		"audio_url":  publicPath,
+	})
+}
+
+// ShareInterviewAPI shares an interview to a grind, with optional anonymity.
+//
+// JSON body:
+// - grind_id: string (required)
+// - mode: "public" | "anonymous" (required)
+// - anonymous_voice_id: string (optional; server default if omitted)
+func ShareInterviewAPI(c *gin.Context) {
+	// 1. Authenticate user
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	sessionID := c.Param("id")
+
+	// 2. Parse body
+	var body struct {
+		GrindID          string `json:"grind_id"`
+		Mode             string `json:"mode"`
+		AnonymousVoiceID string `json:"anonymous_voice_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "invalid request",
+			"errorCode": config.ERROR_CODE_BAD_REQUEST,
+		})
+		return
+	}
+	if body.GrindID == "" || body.Mode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "grind_id and mode are required",
+			"errorCode": config.ERROR_CODE_BAD_REQUEST,
+		})
+		return
+	}
+	if body.Mode != "public" && body.Mode != "anonymous" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "mode must be 'public' or 'anonymous'",
+			"errorCode": config.ERROR_CODE_BAD_REQUEST,
+		})
+		return
+	}
+
+	// 3. Verify user is a participant of the grind
+	if _, err := models.GetParticipateRecordByUserIDAndGrindID(userID, body.GrindID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":     "user is not a participant of this grind",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	// 4. Get interview session
+	session, err := models.GetInterviewSession(sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":     "session not found",
+			"errorCode": config.ERROR_CODE_NOT_FOUND,
+		})
+		return
+	}
+	if session.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+	if session.AudioRecordingURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "no audio uploaded for this interview session",
+			"errorCode": config.ERROR_CODE_BAD_REQUEST,
+		})
+		return
+	}
+
+	// 5. Apply sharing mode
+	now := time.Now()
+	session.IsShared = true
+	session.SharedGrindID = body.GrindID
+	session.ShareMode = body.Mode
+	session.SharedAt = &now
+
+	// If public: just share original
+	if body.Mode == "public" {
+		database.Db.Save(session)
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "Interview shared (public)",
+			"session_id": sessionID,
+			"mode":       "public",
+			"audio_url":  session.AudioRecordingURL,
+		})
+		return
+	}
+
+	// 6. Anonymous: convert voice (MVP: sync conversion)
+	apiKey := os.Getenv("ELEVENLABS_API_KEY")
+	if apiKey == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "ELEVENLABS_API_KEY not configured",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	voiceID := body.AnonymousVoiceID
+	if voiceID == "" {
+		voiceID = os.Getenv("ELEVENLABS_ANON_VOICE_ID")
+	}
+	if voiceID == "" {
+		voiceID = "pNInz6obpgDQGcFmaJgB" // fallback (Adam)
+	}
+
+	// Read original audio from disk
+	localPath := strings.TrimPrefix(session.AudioRecordingURL, "/")
+	audioData, err := os.ReadFile(localPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "failed to read uploaded audio file",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	eleven := services.NewElevenLabsService(apiKey)
+	converted, err := eleven.SpeechToSpeech(
+		voiceID,
+		audioData,
+		"eleven_multilingual_sts_v2",
+		0.0,  // style
+		1.0,  // stability
+		true, // removeBackgroundNoise
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     fmt.Sprintf("voice conversion failed: %v", err),
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	// Save anonymized audio
+	dir := filepath.Join("uploads", "interviews")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "failed to create uploads directory",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	anonFilename := fmt.Sprintf("anon_%s_%d.mp3", sessionID, time.Now().UnixNano())
+	anonDst := filepath.Join(dir, anonFilename)
+	if err := os.WriteFile(anonDst, converted, 0644); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":     "failed to save anonymized audio",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	session.AnonymizedAudioURL = "/uploads/interviews/" + anonFilename
+	session.VoiceConversionApplied = true
+	session.AnonymizedVoiceID = voiceID
+	database.Db.Save(session)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":             "Interview shared (anonymous)",
+		"session_id":          sessionID,
+		"mode":                "anonymous",
+		"audio_url":           session.AnonymizedAudioURL,
+		"anonymized_voice_id": voiceID,
 	})
 }
 

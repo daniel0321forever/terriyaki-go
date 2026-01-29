@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/database"
 	"github.com/daniel0321forever/terriyaki-go/internal/models"
 	"github.com/daniel0321forever/terriyaki-go/internal/serializer"
 	"github.com/daniel0321forever/terriyaki-go/internal/utils"
@@ -380,5 +381,78 @@ func GetProgressRecordsAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":         "Progress records fetched successfully",
 		"progressRecords": progressRecords,
+	})
+}
+
+// GetSharedInterviewsAPI returns interviews shared to this grind.
+// For anonymous shares, non-owners should not see the sharer's identity.
+func GetSharedInterviewsAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	grindID := c.Param("id")
+
+	// Ensure caller is a participant
+	if _, err := models.GetParticipateRecordByUserIDAndGrindID(userID, grindID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	var sessions []models.InterviewSession
+	result := database.Db.
+		Where("is_shared = ? AND shared_grind_id = ? AND share_mode <> ?", true, grindID, "private").
+		Order("shared_at desc").
+		Find(&sessions)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "internal server error",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	items := make([]gin.H, 0, len(sessions))
+	for _, s := range sessions {
+		isOwner := s.UserID == userID
+
+		audioURL := s.AudioRecordingURL
+		if s.ShareMode == "anonymous" {
+			audioURL = s.AnonymizedAudioURL
+		}
+
+		displayName := ""
+		if s.ShareMode == "anonymous" && !isOwner {
+			displayName = "Anonymous grinder"
+		} else {
+			u, err := models.GetUser(s.UserID)
+			if err == nil && u != nil {
+				displayName = u.Username
+			}
+		}
+
+		items = append(items, gin.H{
+			"session_id":   s.ID,
+			"task_id":      s.TaskID,
+			"share_mode":   s.ShareMode,
+			"audio_url":    audioURL,
+			"shared_at":    s.SharedAt,
+			"display_name": displayName,
+			"is_owner":     isOwner,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":          "Shared interviews fetched successfully",
+		"sharedInterviews": items,
 	})
 }

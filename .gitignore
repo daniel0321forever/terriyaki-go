@@ -51,5 +51,8 @@ temp/
 # Log files
 *.log
 
+# Uploads (recorded interview audio, etc.)
+uploads/
+
 # go build
 build

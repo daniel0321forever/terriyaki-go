@@ -16,6 +16,9 @@ func main() {
 	config := config.ConfigureCORS()
 	router.Use(cors.New(config))
 
+	// Serve uploaded files (MVP: local storage)
+	router.Static("/uploads", "./uploads")
+
 	// connect to database
 	_, err := database.Connect()
 	if err != nil {
@@ -42,6 +45,7 @@ func main() {
 	router.GET("/api/v1/grinds/:id", api.GetGrindAPI)
 	router.POST("/api/v1/grinds/:id/quit", api.QuitGrindAPI)
 	router.GET("/api/v1/grinds/:id/progress", api.GetProgressRecordsAPI)
+	router.GET("/api/v1/grinds/:id/shared-interviews", api.GetSharedInterviewsAPI)
 	router.POST("/api/v1/tasks/finish", api.FinishTodayTaskAPI)
 	router.GET("/api/v1/tasks/today", api.GetTodayTaskAPI)
 	router.GET("/api/v1/tasks/:id", api.GetTaskAPI)
@@ -55,6 +59,9 @@ func main() {
 	router.POST("/api/v1/interviews/start", api.StartInterviewAPI)
 	router.POST("/api/v1/interviews/:id/response", api.SaveAgentResponseAPI)
 	router.POST("/api/v1/interviews/:id/end", api.EndInterviewAPI)
+	router.POST("/api/v1/interviews/:id/audio", api.UploadInterviewAudioAPI)
+	router.POST("/api/v1/interviews/:id/share", api.ShareInterviewAPI)
+	router.POST("/api/v1/voice/convert", api.ConvertVoiceAPI)
 	router.PATCH("/api/v1/profile", api.UpdateProfileAPI)
 
 	router.POST("/api/v2/login", api.LoginAPIV2)

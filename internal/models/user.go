@@ -111,7 +111,6 @@ func UpdateUser(
 	stripeCustomerID *string,
 	defaultPaymentMethodID *string,
 ) (*User, error) {
-	var user User
 	updates := make(map[string]any)
 	if username != nil && *username != "" && *username != "none" {
 		updates["username"] = *username
@@ -131,8 +130,19 @@ func UpdateUser(
 	if defaultPaymentMethodID != nil && *defaultPaymentMethodID != "" && *defaultPaymentMethodID != "none" {
 		updates["default_payment_method_id"] = *defaultPaymentMethodID
 	}
-	result := database.Db.Model(&user).Where("id = ?", id).Updates(updates)
-	return &user, result.Error
+
+	result := database.Db.Model(&User{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	// Reload the user to get all fields
+	var user User
+	if err := database.Db.Where("id = ?", id).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 /**

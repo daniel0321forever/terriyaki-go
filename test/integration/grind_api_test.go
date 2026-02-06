@@ -11,11 +11,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to permanently clean up test users
+func cleanupGrindTestUser(email string) {
+	var user models.User
+	database.Db.Unscoped().Where("email = ?", email).Delete(&user)
+}
+
 func TestCreateGrindAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_grind_creator@example.com"
-	user, _ := models.CreateUser("grindcreator", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("grindcreator", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Successful Grind Creation", func(t *testing.T) {
 		// Login to get token
@@ -74,8 +82,10 @@ func TestCreateGrindAPI(t *testing.T) {
 func TestGetAllUserGrindsAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_get_grinds@example.com"
-	user, _ := models.CreateUser("getgrindsuser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("getgrindsuser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Get All User Grinds", func(t *testing.T) {
 		// Login to get token
@@ -105,8 +115,10 @@ func TestGetAllUserGrindsAPI(t *testing.T) {
 func TestGetUserCurrentGrindAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_current_grind@example.com"
-	user, _ := models.CreateUser("currentgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("currentgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Get Current Grind - No Grind", func(t *testing.T) {
 		// Login to get token
@@ -135,8 +147,10 @@ func TestGetUserCurrentGrindAPI(t *testing.T) {
 func TestQuitGrindAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_quit_grind@example.com"
-	user, _ := models.CreateUser("quitgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("quitgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Quit Grind - Unauthorized", func(t *testing.T) {
 		// Execute without auth
@@ -168,8 +182,10 @@ func TestQuitGrindAPI(t *testing.T) {
 func TestGetProgressRecordsAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_progress@example.com"
-	user, _ := models.CreateUser("progressuser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("progressuser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Get Progress Records - Unauthorized", func(t *testing.T) {
 		// Execute without auth
@@ -200,8 +216,10 @@ func TestGetProgressRecordsAPI(t *testing.T) {
 func TestDeleteAllGrindsAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_delete_grinds@example.com"
-	user, _ := models.CreateUser("deletegrindsuser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("deletegrindsuser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Delete All Grinds - No Auth Required", func(t *testing.T) {
 		// Execute without auth - this endpoint doesn't require authentication (it's for testing)
@@ -244,8 +262,10 @@ func TestDeleteAllGrindsAPI(t *testing.T) {
 func TestGetGrindAPI(t *testing.T) {
 	// Create test user
 	testEmail := "test_get_grind@example.com"
-	user, _ := models.CreateUser("getgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
-	defer database.Db.Delete(&user)
+	cleanupGrindTestUser(testEmail)
+	defer cleanupGrindTestUser(testEmail)
+
+	_, _ = models.CreateUser("getgrinduser", testEmail, "password123", "https://example.com/avatar.jpg")
 
 	t.Run("Get Grind - Unauthorized", func(t *testing.T) {
 		// Execute without auth

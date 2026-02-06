@@ -14,10 +14,10 @@ func TestLoginV2Controller(t *testing.T) {
 	// Create a test user
 	testEmail := "test_login_v2@example.com"
 	testPassword := "testpassword123"
-	
+
 	// Clean up any existing user first
 	cleanupTestUser(testEmail)
-	
+
 	user, _ := models.CreateUser("loginv2user", testEmail, testPassword, "https://example.com/avatar.jpg")
 	defer database.Db.Delete(&user)
 
@@ -106,10 +106,10 @@ func TestLoginV2Controller(t *testing.T) {
 func TestVerifyTokenV2Controller(t *testing.T) {
 	// Create a test user
 	testEmail := "test_verify_v2@example.com"
-	
+
 	// Clean up any existing user first
 	cleanupTestUser(testEmail)
-	
+
 	user, _ := models.CreateUser("verifyv2user", testEmail, "password123", "https://example.com/avatar.jpg")
 	defer database.Db.Delete(&user)
 

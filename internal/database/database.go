@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var Db *gorm.DB //created outside to make it global.
@@ -32,7 +33,16 @@ func Connect() (*gorm.DB, error) {
 	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=%s",
 		host, port, user, dbname, pass, sslmode)
 	fmt.Println("psqlSetup: ", psqlSetup)
-	db, err := gorm.Open(postgres.Open(psqlSetup), &gorm.Config{})
+
+	config := &gorm.Config{}
+	if os.Getenv("GORM_SILENT") == "true" {
+		config.Logger = logger.Default.LogMode(logger.Silent)
+	} else {
+		config.Logger = logger.Default.LogMode(logger.Info)
+	}
+
+	db, err := gorm.Open(postgres.Open(psqlSetup), config)
+
 	if err != nil {
 		fmt.Println("There is an error while connecting to the database ", err)
 		panic(err)
@@ -64,7 +74,16 @@ func ConnectTestDB() (*gorm.DB, error) {
 	psqlSetup := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=%s",
 		host, port, user, dbname, pass, sslmode)
 	fmt.Println("psqlSetup: ", psqlSetup)
-	db, err := gorm.Open(postgres.Open(psqlSetup), &gorm.Config{})
+
+	config := &gorm.Config{}
+	if os.Getenv("GORM_SILENT") == "true" {
+		fmt.Println("GORM_SILENT is true, setting logger to silent")
+		config.Logger = logger.Default.LogMode(logger.Silent)
+	} else {
+		config.Logger = logger.Default.LogMode(logger.Info)
+	}
+
+	db, err := gorm.Open(postgres.Open(psqlSetup), config)
 	if err != nil {
 		fmt.Println("There is an error while connecting to the database ", err)
 		panic(err)

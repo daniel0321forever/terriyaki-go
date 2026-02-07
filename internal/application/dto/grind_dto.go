@@ -43,12 +43,10 @@ type QuitGrindDTO struct {
 
 // Output DTOs
 type GroupGrindDTO struct {
-	ID           string    `json:"id"`
-	Duration     int32     `json:"duration"`
-	Participants []UserDTO `json:"participants"`
-	Budget       int32     `json:"budget"`
-	Tasks        []TaskDTO `json:"tasks"`
-	StartDate    time.Time `json:"start_date"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	ID        string    `json:"id"`
+	Duration  int32     `json:"duration"`
+	Budget    int32     `json:"budget"`
+	StartDate time.Time `json:"start_date"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }

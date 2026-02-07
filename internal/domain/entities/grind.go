@@ -9,14 +9,12 @@ import (
 
 /** Unit of grind */
 type Grind struct {
-	ID           string
-	Duration     int32 // stored in days
-	Participants []User
-	Budget       int32
-	Tasks        []Task
-	StartDate    time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID        string
+	Duration  int32 // stored in days
+	Budget    int32
+	StartDate time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 /** Constructor in factory pattern
@@ -37,14 +35,12 @@ func NewGrind(duration int, budget int, startDate time.Time) (*Grind, error) {
 	now := time.Now().UTC()
 
 	return &Grind{
-		ID:           uuid.New().String(),
-		Duration:     int32(duration),
-		Participants: []User{},
-		Budget:       int32(budget),
-		Tasks:        []Task{},
-		StartDate:    startDate.UTC(),
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:        uuid.New().String(),
+		Duration:  int32(duration),
+		Budget:    int32(budget),
+		StartDate: startDate.UTC(),
+		CreatedAt: now,
+		UpdatedAt: now,
 		// Notice: We do NOT initialize Participants or Tasks here
 		// if they require further database lookups.
 	}, nil

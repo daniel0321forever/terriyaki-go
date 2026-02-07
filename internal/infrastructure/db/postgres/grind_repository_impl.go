@@ -39,14 +39,12 @@ func (r *GormGrindRepository) Create(grind *entities.Grind) error {
 	ctx := context.Background()
 	// 1. Map Entity -> DB Schema
 	model := GrindSchema{
-		ID:           grind.ID,
-		Duration:     grind.Duration,
-		Participants: grind.Participants,
-		Budget:       grind.Budget,
-		Tasks:        grind.Tasks,
-		StartDate:    grind.StartDate,
-		CreatedAt:    grind.CreatedAt,
-		UpdatedAt:    grind.UpdatedAt,
+		ID:        grind.ID,
+		Duration:  grind.Duration,
+		Budget:    grind.Budget,
+		StartDate: grind.StartDate,
+		CreatedAt: grind.CreatedAt,
+		UpdatedAt: grind.UpdatedAt,
 	}
 
 	// 2. Save to Postgres

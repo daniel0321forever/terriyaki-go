@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -72,9 +71,11 @@ func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 	}
 
 	// Get the directory where this file is located
-	_, filename, _, _ := runtime.Caller(0)
-	utilsDir := filepath.Dir(filename)
-	csvPath := filepath.Join(utilsDir, listName+".csv")
+	utilsDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
+	}
+	csvPath := filepath.Join(utilsDir, "assets", listName+".csv")
 
 	file, err := os.Open(csvPath)
 	if err != nil {

@@ -12,6 +12,7 @@ func MigrateDatabase() error {
 		&postgres.ParticipationSchema{},
 		&postgres.MessageSchema{},
 		&postgres.InterviewSessionSchema{},
+		&postgres.StripePaymentInfoSchema{},
 	)
 	if err != nil {
 		return err

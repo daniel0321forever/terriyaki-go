@@ -7,8 +7,8 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
 	"gorm.io/datatypes"
 )
 
@@ -68,6 +68,21 @@ func (s *TaskService) GetTodayTask(request dto.GetTodayTaskDTO) (*dto.TaskDTO, e
 		return nil, errors.New("task not found")
 	}
 	return mappers.TaskToTaskDTO(task), nil
+}
+
+func (s *TaskService) GetTaskProgressList(request dto.GetTaskProgressListDTO) ([]*dto.TaskProgressDTO, error) {
+	// check if the user is a participant of the grind
+	taskRecords, err := s.taskRepo.FindByGrindIDAndParticipantID(request.GrindID, request.ParticipationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var progressRecordsDTO []*dto.TaskProgressDTO
+	for _, task := range taskRecords {
+		progressRecordsDTO = append(progressRecordsDTO, mappers.TaskToTaskProgressDTO(&task))
+	}
+
+	return progressRecordsDTO, nil
 }
 
 // more like a "update task"

@@ -1,28 +1,53 @@
 package mappers
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/container"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
 // Converts Grind entity to GroupGrindDTO
 func GrindToGroupGrindDTO(grind *entities.Grind) *dto.GroupGrindDTO {
 	// Convert Tasks
-	taskDTOs := make([]dto.TaskDTO, 0, len(grind.Tasks))
-	for i := range grind.Tasks {
-		taskDTO := TaskToTaskDTO(&grind.Tasks[i])
-		if taskDTO != nil {
-			taskDTOs = append(taskDTOs, *taskDTO)
+	tasks := grind.Tasks
+	taskProgressDTOs := make([]dto.TaskProgressDTO, 0, len(tasks))
+	for i := range tasks {
+		taskProgressDTO := TaskToTaskProgressDTO(&tasks[i])
+		if taskProgressDTO != nil {
+			taskProgressDTOs = append(taskProgressDTOs, *taskProgressDTO)
 		}
 	}
+
+	// Get today's task
+	var todayTask *entities.Task = nil
+	var todayTaskDTO *dto.TaskDTO = nil
+
+	for _, task := range tasks {
+		if task.Date.Equal(time.Now().UTC().Truncate(24 * time.Hour)) {
+			todayTask = &task
+			break
+		}
+	}
+
+	if todayTask != nil {
+		todayTaskDTO = TaskToTaskDTO(todayTask)
+	}
+
 	// Convert participants (users)
-	participatnsDTOs := make([]dto.UserDTO, 0, len(grind.Participants))
-	for i := range grind.Participants {
-		participatnsDTO := UserToUserDTO(&grind.Participants[i])
-		if participatnsDTO != nil {
-			participatnsDTOs = append(participatnsDTOs, *participatnsDTO)
-		}
+	participants, err := container.Repos.UserRepository.FindByGrindID(grind.ID)
+	if err != nil {
+		fmt.Println("Error finding participants by grind ID:", err)
+		panic(err)
 	}
+	participantsDTOs := make([]dto.UserDTO, 0, len(participants))
+	for _, participant := range participants {
+		participantsDTOs = append(participantsDTOs, *UserToUserDTO(&participant))
+	}
+
+	// get today's task
 
 	return &dto.GroupGrindDTO{
 		ID:           grind.ID,
@@ -31,7 +56,17 @@ func GrindToGroupGrindDTO(grind *entities.Grind) *dto.GroupGrindDTO {
 		StartDate:    grind.StartDate,
 		CreatedAt:    grind.CreatedAt,
 		UpdatedAt:    grind.UpdatedAt,
-		Tasks:        taskDTOs,
-		Participants: participatnsDTOs,
+		Progress:     taskProgressDTOs,
+		Participants: participantsDTOs,
+		TodayTask:    todayTaskDTO,
+	}
+}
+
+func GrindToMessageGrindDTO(grind *entities.Grind) *dto.MessageGrindDTO {
+	return &dto.MessageGrindDTO{
+		Duration:     grind.Duration,
+		StartDate:    grind.StartDate,
+		Budget:       grind.Budget,
+		Participants: []string{},
 	}
 }

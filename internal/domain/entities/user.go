@@ -9,11 +9,13 @@ import (
 
 /** Represents a user account **/
 type User struct {
-	ID             string
-	Username       string
-	Email          string
-	Avatar         string
-	HashedPassword string
+	ID                     string
+	Username               string
+	Email                  string
+	Avatar                 string
+	HashedPassword         string
+	StripeCustomerID       string
+	DefaultPaymentMethodID string
 }
 
 /** Constructor in factory pattern

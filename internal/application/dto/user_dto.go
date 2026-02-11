@@ -8,6 +8,13 @@ type CreateUserDTO struct {
 	Avatar   string `json:"avatar,omitempty"`
 }
 
+type UpdateUserDTO struct {
+	UserID                 string  `json:"userID"`
+	Username               *string `json:"username"`
+	Avatar                 *string `json:"avatar"`
+	DefaultPaymentMethodID *string `json:"defaultPaymentMethodID"`
+}
+
 type GetUserDTO struct {
 	UserID string
 }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/config"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -124,9 +124,9 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 		}
 
 		createMessageDTO := dto.CreateInvitationMessageDTO{
-			SenderID:   userID,
-			ReceiverID: participantUser.ID,
-			GrindID:    grindDTO.ID,
+			SenderID:      userID,
+			ReceiverEmail: participantUser.Email,
+			GrindID:       grindDTO.ID,
 		}
 		_, err = ctrl.messageService.CreateInvitationMessage(createMessageDTO)
 		if err != nil {
@@ -143,7 +143,7 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 
 func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
-	_, err := utils.VerifyUserAccess(token)
+	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message":   "unauthorized",
@@ -155,6 +155,7 @@ func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	grindID := c.Param("id")
 	getGrindDTO := dto.GetGrindDTO{
 		GrindID: grindID,
+		UserID:  userID,
 	}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil || grindDTO == nil {
@@ -214,6 +215,7 @@ func (ctrl *GrindController) GetAllUserGrindsAPI(c *gin.Context) {
 	getGrindsDTO := dto.GetAllUserGrindsDTO{
 		UserID: userID,
 	}
+
 	grindDTOs, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
 	if err != nil {
 		fmt.Println(err)
@@ -232,7 +234,7 @@ func (ctrl *GrindController) GetAllUserGrindsAPI(c *gin.Context) {
 
 func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
-	_, err := utils.VerifyUserAccess(token)
+	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message":   "unauthorized",
@@ -247,6 +249,7 @@ func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {
 	budget, _ := strconv.Atoi(c.PostForm("budget"))
 	updateGrindDTO := dto.UpdateGrindDTO{
 		GrindID:  grindID,
+		UserID:   userID,
 		Duration: duration,
 		Budget:   budget,
 	}
@@ -305,4 +308,37 @@ func (ctrl *GrindController) DeleteAllGrindsAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "All grinds deleted successfully"})
+}
+
+// TODO: Fix this to fit new structure
+func (ctrl *GrindController) QuitGrindAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	grindID := c.Param("id")
+	quitGrindDTO := dto.QuitGrindDTO{
+		UserID:  userID,
+		GrindID: grindID,
+	}
+
+	participationDTO, err := ctrl.grindService.QuitGrind(quitGrindDTO)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "internal server error",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Grind quitted successfully",
+		"participation": participationDTO,
+	})
 }

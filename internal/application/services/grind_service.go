@@ -1,13 +1,16 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
+	"gorm.io/datatypes"
 )
 
 type GrindService struct {
@@ -48,16 +51,41 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 		return nil, err
 	}
 
-	// 3. Setup Creator (The person who made the API call)
+	// 3. Setup Creator and create all tasks for the creator (The person who made the API call)
 	participation, err := entities.NewParticipation(request.CreatorID, grind.ID)
 	_ = s.participationRepo.Create(participation)
+
+	// assign participants
+	creator, err := s.userRepo.FindById(request.CreatorID)
+	if err != nil {
+		return nil, err
+	}
+	grind.Participants = []entities.User{*creator}
+
+	// create tasks
+	var tasks []entities.Task = make([]entities.Task, 0, request.Duration)
 	for i := 0; i < request.Duration; i++ {
 		task, err := entities.NewTask(request.CreatorID, grind.ID, request.StartDate.AddDate(0, 0, i))
 		if err != nil {
 			return nil, err
 		}
+
+		// assign leetcode problem to the task
+		problem, err := utils.GetRandomProblemFromList("neetcode250")
+		if err != nil {
+			return nil, err
+		}
+		task.ProblemTitle = &problem.Title
+		problemURL := "https://leetcode.com/problems/" + problem.Slug
+		task.ProblemURL = &problemURL
+		task.ProblemDifficulty = &problem.Difficulty
+		topicTagsJSON, _ := json.Marshal(problem.TopicTags)
+		task.ProblemTopicTags = datatypes.JSON(topicTagsJSON)
+
 		s.taskRepo.Create(task)
+		tasks = append(tasks, *task)
 	}
+	grind.Tasks = tasks
 
 	return mappers.GrindToGroupGrindDTO(grind), nil
 }
@@ -81,25 +109,52 @@ func (s *GrindService) GetOngoingGrindByUserID(request dto.GetOngoingGrindDTO) (
 		return nil, errors.New("user not participating or quitted")
 	}
 
+	// user's tasks
+	tasks, err := s.taskRepo.FindByGrindIDAndParticipantID(grind.ID, request.UserID)
+	if err != nil {
+		return nil, errors.New("tasks not found")
+	}
+	grind.Tasks = tasks
+
 	return mappers.GrindToGroupGrindDTO(grind), nil
 }
 
+/*
+ * Get a grind by ID and user ID
+ * @param request dto.GetGrindDTO
+ * @return *dto.GroupGrindDTO, error
+ * @throws errors.New("grind not found")
+ * @throws errors.New("tasks not found")
+ */
 func (s *GrindService) GetGrind(request dto.GetGrindDTO) (*dto.GroupGrindDTO, error) {
 	grind, err := s.grindRepo.FindById(request.GrindID)
 	if err != nil {
 		return nil, errors.New("grind not found")
 	}
+
+	// user's tasks
+	tasks, err := s.taskRepo.FindByGrindIDAndParticipantID(grind.ID, request.UserID)
+	if err != nil {
+		return nil, errors.New("tasks not found")
+	}
+	grind.Tasks = tasks
 	return mappers.GrindToGroupGrindDTO(grind), nil
 }
 
-func (s *GrindService) GetAllUserGrinds(request dto.GetAllUserGrindsDTO) ([]*dto.GroupGrindDTO, error) {
+func (s *GrindService) GetAllUserGrinds(request dto.GetAllUserGrindsDTO) (map[string]*dto.GroupGrindDTO, error) {
 	grinds, err := s.grindRepo.FindAllByUserID(request.UserID)
 	if err != nil {
 		return nil, errors.New("grind not found")
 	}
-	var output []*dto.GroupGrindDTO
+	output := make(map[string]*dto.GroupGrindDTO)
 	for _, grind := range grinds {
-		output = append(output, mappers.GrindToGroupGrindDTO(grind))
+		tasks, err := s.taskRepo.FindByGrindIDAndParticipantID(grind.ID, request.UserID)
+		if err != nil {
+			return nil, errors.New("tasks not found")
+		}
+
+		grind.Tasks = tasks
+		output[grind.ID] = mappers.GrindToGroupGrindDTO(grind)
 	}
 	return output, nil
 }
@@ -115,6 +170,11 @@ func (s *GrindService) UpdateGrind(request dto.UpdateGrindDTO) (*dto.GroupGrindD
 	if err != nil {
 		return nil, errors.New("grind update failed")
 	}
+	tasks, err := s.taskRepo.FindByGrindIDAndParticipantID(grind.ID, request.UserID)
+	if err != nil {
+		return nil, errors.New("tasks not found")
+	}
+	grind.Tasks = tasks
 	return mappers.GrindToGroupGrindDTO(grind), nil
 }
 
@@ -183,4 +243,32 @@ func (s *GrindService) AddParticipation(request dto.AddParticipationDTO) error {
 	}
 
 	return nil
+}
+
+func (s *GrindService) QuitGrind(request dto.QuitGrindDTO) (*dto.ParticipationDTO, error) {
+	// find the grind
+	grind, err := s.grindRepo.FindById(request.GrindID)
+	if err != nil {
+		return nil, errors.New("grind not found")
+	}
+
+	// 1. Check if the user is a participant of the grind
+	participation, err := s.participationRepo.FindByUserAndGrind(request.UserID, request.GrindID)
+	if err != nil {
+		return nil, errors.New("participation not found")
+	}
+	if participation == nil {
+		return nil, errors.New("user is not a participant of the grind")
+	}
+
+	// 2. Update the participation record
+	participation.Quitted = true
+	participation.QuittedAt = time.Now()
+	participation.TotalPenalty = int(grind.Budget)
+	err = s.participationRepo.Update(participation)
+	if err != nil {
+		return nil, errors.New("participation update failed")
+	}
+
+	return mappers.ParticipationToParticipationDTO(participation), nil
 }

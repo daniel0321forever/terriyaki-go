@@ -9,5 +9,6 @@ type MessageRepository interface {
 	Create(message *entities.Message) error
 	FindByID(id string) (*entities.Message, error)
 	FindAllForReceiver(receiverID string, offset, limit int) ([]*entities.Message, error)
+	FindAllFromSender(senderID string, offset, limit int) ([]*entities.Message, error)
 	Update(message *entities.Message) error
 }

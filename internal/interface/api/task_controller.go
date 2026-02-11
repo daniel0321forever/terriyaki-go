@@ -6,8 +6,8 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/config"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -185,5 +185,42 @@ func (ctrl *TaskController) FinishTodayTaskAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Task updated successfully",
 		"task":    taskDTO,
+	})
+}
+
+func (ctrl *TaskController) GetProgressRecordsAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	grindID := c.Param("id")
+	participantID := c.Query("participantId")
+	if participantID == "" {
+		participantID = userID
+	}
+
+	getTaskProgressListDTO := dto.GetTaskProgressListDTO{
+		ParticipationID: participantID,
+		GrindID:         grindID,
+	}
+
+	progressRecords, err := ctrl.taskService.GetTaskProgressList(getTaskProgressListDTO)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "Error fetching progress records",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Progress records fetched successfully",
+		"progressRecords": progressRecords,
 	})
 }

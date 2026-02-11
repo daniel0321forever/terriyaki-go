@@ -10,6 +10,7 @@ import (
 
 // GrindSchema is a private struct used only for GORM mapping (decoupling for Grind entity)
 type GrindSchema struct {
+	gorm.Model
 	ID           string          `json:"id" gorm:"primaryKey"`
 	Duration     int32           `json:"duration" gorm:"not null"` // stored in days
 	Participants []entities.User `json:"participants" gorm:"many2many:participate_records;foreignKey:ID;references:ID"`
@@ -173,4 +174,31 @@ func (r *GormGrindRepository) FindLatestByUserID(userID string) (*entities.Grind
 func (r *GormGrindRepository) DeleteAll() error {
 	ctx := context.Background()
 	return r.db.WithContext(ctx).Where("1 = 1").Delete(&GrindSchema{}).Error
+}
+
+func (r *GormGrindRepository) FindDuedGrinds() ([]*entities.Grind, error) {
+	ctx := context.Background()
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	var models []GrindSchema
+
+	err := r.db.WithContext(ctx).
+		Table("grinds").
+		Where("DATE(start_date, '+' || duration || ' day') = ?", today.Format("2006-01-02")).
+		Find(&models).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	grinds := make([]*entities.Grind, len(models))
+	for _, model := range models {
+		grinds = append(grinds, &entities.Grind{
+			ID:        model.ID,
+			Duration:  model.Duration,
+			Budget:    model.Budget,
+			StartDate: model.StartDate,
+		})
+	}
+
+	return grinds, nil
 }

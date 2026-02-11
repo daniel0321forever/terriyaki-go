@@ -10,8 +10,8 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/config"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

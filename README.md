@@ -243,6 +243,80 @@ internal/
 
    The backend will start on **http://localhost:8080**
 
+## Running Tests
+
+### Option 1: Run Tests Locally
+
+1. **Create a test database:**
+   ```bash
+   createdb terriyaki_test
+   ```
+   Or using psql:
+   ```bash
+   /opt/homebrew/opt/postgresql@15/bin/psql -U $(whoami) -d postgres -c "CREATE DATABASE terriyaki_test;"
+   ```
+
+2. **Update your `.env` file with test database credentials:**
+   Add these lines to your `.env` file:
+   ```
+   TEST_POSTGRES_HOST=localhost
+   TEST_POSTGRES_PORT=5432
+   TEST_POSTGRES_USER=your_username
+   TEST_POSTGRES_DB=terriyaki_test
+   TEST_POSTGRES_PASSWORD=
+   TEST_POSTGRES_SSLMODE=disable
+   GORM_SILENT=true
+   ```
+   Replace `your_username` with your system username.
+
+3. **Run all integration tests:**
+   ```bash
+   go test -v ./test/integration/...
+   ```
+
+4. **Run specific test file:**
+   ```bash
+   go test -v ./test/integration -run TestCreateGrindAPI
+   ```
+
+### Option 2: Run Tests in Docker
+
+This approach creates isolated test containers with their own PostgreSQL database, ensuring a clean test environment.
+
+1. **Navigate to the test directory:**
+   ```bash
+   cd test
+   ```
+
+2. **Build and run tests:**
+   ```bash
+   docker-compose up --abort-on-container-exit
+   ```
+   This will:
+   - Start a PostgreSQL test database container
+   - Build the test container with your code
+   - Run all integration tests
+   - Stop automatically when tests complete
+
+3. **Clean up containers:**
+   ```bash
+   docker-compose down
+   ```
+
+4. **Rebuild after code changes:**
+   ```bash
+   docker-compose build
+   docker-compose up --abort-on-container-exit
+   ```
+
+### Test Results
+
+All tests should pass. You should see output ending with:
+```
+PASS
+ok      github.com/daniel0321forever/terriyaki-go/test/integration  [time]
+```
+
 ## Local Integration Test
 - The problem
   - Frontend → ElevenLabs: works (browser can reach ElevenLabs servers)

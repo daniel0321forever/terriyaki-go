@@ -2,6 +2,7 @@ package mappers
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
@@ -29,5 +30,25 @@ func TaskToTaskDTO(task *entities.Task) *dto.TaskDTO {
 		ProblemTopicTags:   topicTags,
 		Code:               task.Code,
 		CodeLanguage:       task.CodeLanguage,
+	}
+}
+
+func TaskToTaskProgressDTO(task *entities.Task) *dto.TaskProgressDTO {
+	status := "pending"
+	if task.Completed {
+		status = "completed"
+	} else {
+		startOfTaskDay := task.Date.UTC().Truncate(24 * time.Hour).Add(time.Hour * 1)
+		startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+		if startOfTaskDay.Before(startOfToday) {
+			status = "missed"
+		}
+	}
+
+	return &dto.TaskProgressDTO{
+		ID:           task.ID,
+		Date:         task.Date,
+		FinishedTime: task.FinishedTime,
+		Status:       status,
 	}
 }

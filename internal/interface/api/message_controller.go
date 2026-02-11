@@ -1,14 +1,13 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/config"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -73,33 +72,9 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 	}
 
 	// Build response with related data
-	responseData := []gin.H{}
+	responseData := []*dto.MessageDTO{}
 	for _, messageDTO := range messageDTOs {
-
-		if len(messageDTO.SenderID) == 0 ||
-			len(messageDTO.ReceiverID) == 0 ||
-			len(messageDTO.InvitationGrindID) == 0 {
-			panic(errors.New("Empty SenderID/ReceiverID/GrindID"))
-		}
-
-		// Get sender
-		getUserDTO := dto.GetUserDTO{UserID: messageDTO.SenderID}
-		senderDTO, _ := ctrl.userService.GetUser(getUserDTO)
-
-		// Get receiver
-		getUserDTO = dto.GetUserDTO{UserID: messageDTO.ReceiverID}
-		receiverDTO, _ := ctrl.userService.GetUser(getUserDTO)
-
-		// Get grind
-		getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrindID}
-		grindDTO, _ := ctrl.grindService.GetGrind(getGrindDTO)
-
-		responseData = append(responseData, gin.H{
-			"message":  messageDTOs,
-			"sender":   senderDTO,
-			"receiver": receiverDTO,
-			"grind":    grindDTO,
-		})
+		responseData = append(responseData, messageDTO)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -137,6 +112,7 @@ func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
 		MessageID: messageID,
 		Read:      true,
 	}
+
 	messageDTO, err := ctrl.messageService.UpdateMessageReadStatus(updateMessageDTO)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -146,36 +122,9 @@ func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
 		return
 	}
 
-	// Get related data
-	if len(messageDTO.SenderID) == 0 ||
-		len(messageDTO.ReceiverID) == 0 ||
-		len(messageDTO.InvitationGrindID) == 0 {
-		panic(errors.New("Empty SenderID/ReceiverID/GrindID"))
-	}
-	var senderDTO *dto.UserDTO
-	var receiverDTO *dto.UserDTO
-	var grindDTO *dto.GroupGrindDTO
-
-	// Get sender
-	getUserDTO = dto.GetUserDTO{UserID: messageDTO.SenderID}
-	senderDTO, _ = ctrl.userService.GetUser(getUserDTO)
-
-	// Get receiver
-	getUserDTO = dto.GetUserDTO{UserID: messageDTO.ReceiverID}
-	receiverDTO, _ = ctrl.userService.GetUser(getUserDTO)
-
-	// Get grind
-	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrindID}
-	grindDTO, _ = ctrl.grindService.GetGrind(getGrindDTO)
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Message read successfully",
-		"data": gin.H{
-			"message":  messageDTO,
-			"sender":   senderDTO,
-			"receiver": receiverDTO,
-			"grind":    grindDTO,
-		},
+		"data":    messageDTO,
 	})
 }
 
@@ -191,16 +140,6 @@ func (ctrl *MessageController) CreateInvitationAPI(c *gin.Context) {
 	}
 
 	// Get user from user id
-	getUserDTO := dto.GetUserDTO{UserID: userID}
-	senderDTO, err := ctrl.userService.GetUser(getUserDTO)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
-		return
-	}
-
 	body := map[string]any{}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -210,49 +149,14 @@ func (ctrl *MessageController) CreateInvitationAPI(c *gin.Context) {
 		return
 	}
 
-	grindID, ok := body["grindID"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid grindID",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
-		return
-	}
-
-	participantEmail, ok := body["participantEmail"].(string)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid participantEmail",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
-		return
-	}
-
-	getReceiverDTO := dto.GetUserByEmailDTO{Email: participantEmail}
-	receiverDTO, err := ctrl.userService.GetUserByEmail(getReceiverDTO)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "participant email not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
-		return
-	}
-
-	getGrindDTO := dto.GetGrindDTO{GrindID: grindID}
-	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "grind not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
-		return
-	}
+	receiverEmail := body["participantEmail"].(string)
+	grindID := body["grindID"].(string)
 
 	// Create invitation message
 	createMessageDTO := dto.CreateInvitationMessageDTO{
-		SenderID:   senderDTO.ID,
-		ReceiverID: receiverDTO.ID,
-		GrindID:    grindDTO.ID,
+		SenderID:      userID,
+		ReceiverEmail: receiverEmail,
+		GrindID:       grindID,
 	}
 	messageDTO, err := ctrl.messageService.CreateInvitationMessage(createMessageDTO)
 	if err != nil {
@@ -265,12 +169,7 @@ func (ctrl *MessageController) CreateInvitationAPI(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Invitation created successfully",
-		"data": gin.H{
-			"message":  messageDTO,
-			"sender":   senderDTO,
-			"receiver": receiverDTO,
-			"grind":    grindDTO,
-		},
+		"data":    messageDTO,
 	})
 }
 
@@ -308,7 +207,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 		})
 		return
 	}
-	grindID := messageDTO.InvitationGrindID
+	grindID := messageDTO.InvitationGrind.ID
 
 	// Add participant to grind (still uses string params - service not updated yet)
 	addParticipationDTO := dto.AddParticipationDTO{
@@ -325,7 +224,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 
 	// Get invitor user data from inviting message sender id
-	getUserDTO = dto.GetUserDTO{UserID: messageDTO.SenderID}
+	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
 	invitorDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -422,7 +321,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	}
 
 	// Get invitor user data from inviting message sender id
-	getUserDTO = dto.GetUserDTO{UserID: messageDTO.SenderID}
+	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
 	invitorDTO, _ := ctrl.userService.GetUser(getUserDTO)
 
 	// Update message invitation responded status
@@ -436,12 +335,12 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	createMessageDTO := dto.CreateInvitationRejectedMessageDTO{
 		RejecterID: rejectorDTO.ID,
 		InvitorID:  invitorDTO.ID,
-		GrindID:    messageDTO.InvitationGrindID,
+		GrindID:    messageDTO.InvitationGrind.ID,
 	}
 	messageDTO, _ = ctrl.messageService.CreateInvitationRejectedMessage(createMessageDTO)
 
 	// Get grind
-	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrindID}
+	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrind.ID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -459,5 +358,41 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 			"receiver": rejectorDTO,
 			"grind":    grindDTO,
 		},
+	})
+}
+
+/**
+ * Get all the messages that the user has sent
+ * @param c - the context
+ * @return the messages that the user has sent
+ */
+func (ctrl *MessageController) GetSentMessageAPI(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	userID, err := utils.VerifyUserAccess(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message":   "unauthorized",
+			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
+		})
+		return
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	offset, _ := strconv.Atoi(offsetStr)
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+
+	messages, err := ctrl.messageService.GetAllMessageFromSender(userID, offset, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message":   "internal server error",
+			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Messages fetched successfully",
+		"data":    messages,
 	})
 }

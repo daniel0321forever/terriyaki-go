@@ -10,17 +10,18 @@ import (
 )
 
 type TaskSchema struct {
-	ID                 string `gorm:"primaryKey"`
-	TaskType           string
-	UserID             string    `gorm:"not null"`
-	GrindID            string    `gorm:"not null"`
-	Date               time.Time `gorm:"not null"`
-	FinishedTime       time.Time
-	Completed          bool `gorm:"default:false"`
-	ProblemTitle       *string
-	ProblemDescription *string
-	ProblemURL         *string
-	ProblemDifficulty  *string
+	gorm.Model
+	ID                 string    `json:"id" gorm:"primaryKey"`
+	TaskType           string    `json:"task_type" gorm:"not null"`
+	UserID             string    `json:"user_id" gorm:"not null"`
+	GrindID            string    `json:"grind_id" gorm:"not null"`
+	Date               time.Time `json:"date" gorm:"not null"`
+	FinishedTime       time.Time `json:"finished_time"`
+	Completed          bool      `json:"completed" gorm:"default:false"`
+	ProblemTitle       *string   `json:"problem_title"`
+	ProblemDescription *string   `json:"problem_description"`
+	ProblemURL         *string   `json:"problem_url"`
+	ProblemDifficulty  *string   `json:"problem_difficulty"`
 	ProblemTopicTags   datatypes.JSON
 
 	Code         string
@@ -119,17 +120,17 @@ func (r *GormTaskRepository) FindTodayTask(userID, grindID string) (*entities.Ta
 	}, nil
 }
 
-func (r *GormTaskRepository) FindByGrindID(grindID string) ([]*entities.Task, error) {
+func (r *GormTaskRepository) FindByGrindIDAndParticipantID(grindID, userID string) ([]entities.Task, error) {
 	ctx := context.Background()
 	var models []TaskSchema
-	err := r.db.WithContext(ctx).Where("grind_id = ?", grindID).Find(&models).Error
+	err := r.db.WithContext(ctx).Where("grind_id = ? AND user_id = ?", grindID, userID).Find(&models).Error
 	if err != nil {
 		return nil, err
 	}
 
-	tasks := make([]*entities.Task, len(models))
+	tasks := make([]entities.Task, len(models))
 	for i, model := range models {
-		tasks[i] = &entities.Task{
+		tasks[i] = entities.Task{
 			ID:                 model.ID,
 			TaskType:           model.TaskType,
 			UserID:             model.UserID,

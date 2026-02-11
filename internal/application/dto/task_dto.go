@@ -13,6 +13,11 @@ type GetTodayTaskDTO struct {
 	GrindID string
 }
 
+type GetTaskProgressListDTO struct {
+	ParticipationID string
+	GrindID         string
+}
+
 type FinishTaskDTO struct {
 	TaskID       string
 	Code         string
@@ -39,4 +44,11 @@ type TaskDTO struct {
 	ProblemTopicTags   interface{} `json:"topicTags,omitempty"`
 	Code               string      `json:"code"`
 	CodeLanguage       string      `json:"language"`
+}
+
+type TaskProgressDTO struct {
+	ID           string    `json:"id"`
+	Date         time.Time `json:"date"`
+	FinishedTime time.Time `json:"finishedTime"`
+	Status       string    `json:"status"`
 }

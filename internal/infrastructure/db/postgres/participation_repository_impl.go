@@ -9,6 +9,7 @@ import (
 )
 
 type ParticipationSchema struct {
+	gorm.Model
 	ID           string    `json:"id" gorm:"primaryKey"`
 	UserID       string    `json:"user_id" gorm:"not null;constraint:OnDelete:CASCADE;"`
 	GrindID      string    `json:"grind_id" gorm:"not null;constraint:OnDelete:CASCADE;"`

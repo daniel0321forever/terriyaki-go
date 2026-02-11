@@ -13,4 +13,5 @@ type GrindRepository interface {
 	Update(grind *entities.Grind) error
 	Delete(id string) error
 	DeleteAll() error
+	FindDuedGrinds() ([]*entities.Grind, error)
 }

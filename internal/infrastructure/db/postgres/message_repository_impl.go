@@ -57,6 +57,7 @@ func (r *GormMessageRepository) FindByID(id string) (*entities.Message, error) {
 	if err := r.db.WithContext(ctx).First(&model, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
+
 	return &entities.Message{
 		ID:                 model.ID,
 		SenderID:           model.SenderID,
@@ -86,7 +87,41 @@ func (r *GormMessageRepository) FindAllForReceiver(receiverID string, offset, li
 	if err != nil {
 		return nil, err
 	}
-	
+
+	messages := make([]*entities.Message, len(models))
+	for i, model := range models {
+		messages[i] = &entities.Message{
+			ID:                 model.ID,
+			SenderID:           model.SenderID,
+			ReceiverID:         model.ReceiverID,
+			Content:            model.Content,
+			Type:               model.Type,
+			InvitationGrindID:  model.InvitationGrindID,
+			InvitationAccepted: model.InvitationAccepted,
+			InvitationRejected: model.InvitationRejected,
+			Read:               model.Read,
+			CreatedAt:          model.CreatedAt,
+			UpdatedAt:          model.UpdatedAt,
+		}
+	}
+	return messages, nil
+}
+
+func (r *GormMessageRepository) FindAllFromSender(senderID string, offset, limit int) ([]*entities.Message, error) {
+	ctx := context.Background()
+	var models []MessageSchema
+	query := r.db.WithContext(ctx).Where("sender_id = ?", senderID).Order("created_at DESC")
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	err := query.Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+
 	messages := make([]*entities.Message, len(models))
 	for i, model := range models {
 		messages[i] = &entities.Message{

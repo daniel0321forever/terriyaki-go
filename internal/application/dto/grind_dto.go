@@ -14,6 +14,7 @@ type CreateGrindDTO struct {
 
 type GetGrindDTO struct {
 	GrindID string
+	UserID  string
 }
 
 type DeleteGrindDTO struct {
@@ -32,6 +33,7 @@ type UpdateGrindDTO struct {
 	// We usually get the ID from the URL path, not the body,
 	// but keeping it here for batch updates is fine.
 	GrindID  string `json:"-"`
+	UserID   string `json:"-"`
 	Duration int    `json:"duration,omitempty"`
 	Budget   int    `json:"budget,omitempty"`
 }
@@ -43,12 +45,21 @@ type QuitGrindDTO struct {
 
 // Output DTOs
 type GroupGrindDTO struct {
+	ID           string            `json:"id"`
+	Duration     int32             `json:"duration"`
+	Participants []UserDTO         `json:"participants"`
+	Budget       int32             `json:"budget"`
+	Progress     []TaskProgressDTO `json:"progress"`
+	StartDate    time.Time         `json:"startDate"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at,omitempty"`
+	TodayTask    *TaskDTO          `json:"taskToday,omitempty"`
+}
+
+type MessageGrindDTO struct {
 	ID           string    `json:"id"`
-	Duration     int32     `json:"duration"`
-	Participants []UserDTO `json:"participants"`
+	Duration     int32     `json:"duration"` // in days
+	StartDate    time.Time `json:"startDate"`
 	Budget       int32     `json:"budget"`
-	Tasks        []TaskDTO `json:"tasks"`
-	StartDate    time.Time `json:"start_date"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	Participants []string  `json:"participants"`
 }

@@ -13,6 +13,7 @@ import (
 type MessageService struct {
 	messageRepo repositories.MessageRepository
 	userRepo    repositories.UserRepository
+	grindRepo   repositories.GrindRepository
 }
 
 func NewMessageService(messageRepo repositories.MessageRepository, userRepo repositories.UserRepository) *MessageService {
@@ -23,7 +24,8 @@ func NewMessageService(messageRepo repositories.MessageRepository, userRepo repo
 }
 
 func (s *MessageService) CreateInvitationMessage(request dto.CreateInvitationMessageDTO) (*dto.MessageDTO, error) {
-	sender, err := s.userRepo.FindById(request.SenderID)
+	// get receiver
+	receiver, err := s.userRepo.FindByEmail(request.ReceiverEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -31,10 +33,10 @@ func (s *MessageService) CreateInvitationMessage(request dto.CreateInvitationMes
 	// Create message entity using constructor
 	message, err := entities.NewMessage(
 		request.SenderID,
-		request.ReceiverID,
-		sender.Username+" invited you to join a grind",
+		receiver.ID,
+		request.SenderID+" invited you to join a grind",
 		"invitation",
-		request.GrindID,
+		"",
 		false, // invitationAccepted
 		false, // invitationRejected
 	)
@@ -51,16 +53,12 @@ func (s *MessageService) CreateInvitationMessage(request dto.CreateInvitationMes
 }
 
 func (s *MessageService) CreateInvitationAcceptedMessage(request dto.CreateInvitationAcceptedMessageDTO) (*dto.MessageDTO, error) {
-	accepter, err := s.userRepo.FindById(request.AccepterID)
-	if err != nil {
-		return nil, err
-	}
 
 	// Create message entity using constructor
 	message, err := entities.NewMessage(
 		request.AccepterID,
 		request.InvitorID,
-		accepter.Username+" accepted your invitation",
+		request.AccepterID+" accepted your invitation",
 		"invitation_accepted",
 		request.GrindID,
 		true,  // invitationAccepted
@@ -79,16 +77,11 @@ func (s *MessageService) CreateInvitationAcceptedMessage(request dto.CreateInvit
 }
 
 func (s *MessageService) CreateInvitationRejectedMessage(request dto.CreateInvitationRejectedMessageDTO) (*dto.MessageDTO, error) {
-	rejecter, err := s.userRepo.FindById(request.RejecterID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create message entity using constructor
 	message, err := entities.NewMessage(
 		request.RejecterID,
 		request.InvitorID,
-		rejecter.Username+" rejected your invitation",
+		request.RejecterID+" rejected your invitation",
 		"invitation_rejected",
 		request.GrindID,
 		false, // invitationAccepted
@@ -160,3 +153,14 @@ func (s *MessageService) UpdateMessageInvitationAcceptedStatus(request dto.Updat
 	return mappers.MessageToMessageDTO(message), nil
 }
 
+func (s *MessageService) GetAllMessageFromSender(senderID string, offset, limit int) ([]*dto.MessageDTO, error) {
+	messages, err := s.messageRepo.FindAllFromSender(senderID, offset, limit)
+	if err != nil {
+		return nil, errors.New("message not found")
+	}
+	var output []*dto.MessageDTO
+	for _, message := range messages {
+		output = append(output, mappers.MessageToMessageDTO(message))
+	}
+	return output, nil
+}

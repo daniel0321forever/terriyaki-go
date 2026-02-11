@@ -5,9 +5,9 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
-	"github.com/daniel0321forever/terriyaki-go/internal/utils"
 )
 
 type UserService struct {
@@ -76,4 +76,28 @@ func (s *UserService) DeleteUser(request dto.DeleteUserDTO) error {
 
 func (s *UserService) VerifyPassword(request dto.VerifyPasswordDTO) bool {
 	return utils.VerifyPassword(request.UserID, request.Password)
+}
+
+func (s *UserService) UpdateUser(request dto.UpdateUserDTO) (*dto.UserDTO, error) {
+	user, err := s.userRepo.FindById(request.UserID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	if request.Username != nil {
+		user.Username = *request.Username
+	}
+	if request.Avatar != nil {
+		user.Avatar = *request.Avatar
+	}
+	if request.DefaultPaymentMethodID != nil {
+		user.DefaultPaymentMethodID = *request.DefaultPaymentMethodID
+	}
+
+	err = s.userRepo.Update(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return mappers.UserToUserDTO(user), nil
 }

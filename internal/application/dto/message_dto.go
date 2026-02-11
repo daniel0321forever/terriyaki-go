@@ -4,9 +4,9 @@ import "time"
 
 // Input DTOs
 type CreateInvitationMessageDTO struct {
-	SenderID   string
-	ReceiverID string
-	GrindID    string
+	SenderID      string
+	ReceiverEmail string
+	GrindID       string
 }
 
 type CreateInvitationAcceptedMessageDTO struct {
@@ -43,15 +43,15 @@ type UpdateMessageInvitationAcceptedStatusDTO struct {
 
 // Output DTOs
 type MessageDTO struct {
-	ID                 string    `json:"id"`
-	SenderID           string    `json:"senderID"`
-	ReceiverID         string    `json:"receiverID"`
-	Content            string    `json:"content"`
-	Type               string    `json:"type"` // "general", "invitation", "invitation_accepted", "invitation_rejected"
-	InvitationGrindID  string    `json:"invitationGrindID,omitempty"`
-	InvitationAccepted bool      `json:"invitationAccepted"`
-	InvitationRejected bool      `json:"invitationRejected"`
-	Read               bool      `json:"read"`
-	CreatedAt          time.Time `json:"createdAt"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	ID                 string           `json:"id"`
+	Sender             *UserDTO         `json:"sender"`
+	Receiver           *UserDTO         `json:"receiver"`
+	Content            string           `json:"content"`
+	Type               string           `json:"type"` // "general", "invitation", "invitation_accepted", "invitation_rejected"
+	InvitationGrind    *MessageGrindDTO `json:"grind,omitempty"`
+	InvitationAccepted bool             `json:"invitationAccepted"`
+	InvitationRejected bool             `json:"invitationRejected"`
+	Read               bool             `json:"read"`
+	CreatedAt          time.Time        `json:"createdAt"`
+	UpdatedAt          time.Time        `json:"updatedAt"`
 }

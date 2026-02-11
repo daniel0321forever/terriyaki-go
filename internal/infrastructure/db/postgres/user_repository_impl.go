@@ -9,14 +9,16 @@ import (
 )
 
 type UserSchema struct {
-	ID       string `gorm:"primaryKey"`
-	Username string
-	Email    string `gorm:"uniqueIndex;not null"`
-	// Name deprecated?
-	Password  string
-	Avatar    string
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	gorm.Model
+	ID                     string    `json:"id" gorm:"primaryKey"`
+	Username               string    `json:"username" gorm:"not null"`
+	Email                  string    `json:"email" gorm:"uniqueIndex;not null"`
+	Password               string    `json:"password" gorm:"not null"`
+	Avatar                 string    `json:"avatar" gorm:""`
+	StripeCustomerID       string    `json:"stripe_customer_id" gorm:""`
+	DefaultPaymentMethodID string    `json:"default_payment_method_id" gorm:""`
+	CreatedAt              time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt              time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 func (UserSchema) TableName() string { return "users" }
@@ -75,7 +77,43 @@ func (r *GormUserRepository) FindById(id string) (*entities.User, error) {
 	}, nil
 }
 
+func (r *GormUserRepository) FindByGrindID(grindID string) ([]entities.User, error) {
+	ctx := context.Background()
+	var models []UserSchema
+	err := r.db.WithContext(ctx).Table("users").
+		Joins("INNER JOIN participation ON users.id = participation.user_id").
+		Where("participation.grind_id = ?", grindID).
+		Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+	users := make([]entities.User, len(models))
+	for i, model := range models {
+		users[i] = entities.User{
+			ID:                     model.ID,
+			Email:                  model.Email,
+			Username:               model.Username,
+			Avatar:                 model.Avatar,
+			HashedPassword:         model.Password,
+			StripeCustomerID:       model.StripeCustomerID,
+			DefaultPaymentMethodID: model.DefaultPaymentMethodID,
+		}
+	}
+
+	return users, nil
+}
+
 func (r *GormUserRepository) Delete(id string) error {
 	ctx := context.Background()
 	return r.db.WithContext(ctx).Delete(&UserSchema{}, "id = ?", id).Error
+}
+
+func (r *GormUserRepository) Update(user *entities.User) error {
+	ctx := context.Background()
+	model := UserSchema{
+		ID:       user.ID,
+		Username: user.Username,
+		Avatar:   user.Avatar,
+	}
+	return r.db.WithContext(ctx).Model(&UserSchema{}).Where("id = ?", user.ID).Updates(&model).Error
 }

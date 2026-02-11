@@ -2,10 +2,11 @@ package main
 
 import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/container"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/migrate"
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"github.com/daniel0321forever/terriyaki-go/internal/interface/api"
-	"github.com/daniel0321forever/terriyaki-go/internal/migrate"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -28,6 +29,12 @@ func main() {
 		panic(err)
 	}
 
+	// NOTE: with this we can easily change the repository implementation without changing the codebase
+	err = container.InitializeReposContainer(db)
+	if err != nil {
+		panic(err)
+	}
+
 	// Initialize repositories
 	userRepo := postgres.NewGormUserRepository(db)
 	grindRepo := postgres.NewGormGrindRepository(db)
@@ -35,6 +42,7 @@ func main() {
 	participationRepo := postgres.NewGormParticipationRepository(db)
 	messageRepo := postgres.NewGormMessageRepository(db)
 	interviewSessionRepo := postgres.NewGormInterviewSessionRepository(db)
+	paymentInfoRepo := postgres.NewGormStripePaymentInfoRepository(db)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
@@ -42,7 +50,7 @@ func main() {
 	taskService := services.NewTaskService(taskRepo)
 	messageService := services.NewMessageService(messageRepo, userRepo)
 	interviewService := services.NewInterviewService(interviewSessionRepo)
-
+	paymentService := services.NewStripePaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo)
 	// Initialize API handlers with services
 	grindCtrl := api.NewGrindController(grindService, userService, messageService)
 	userCtrl := api.NewUserController(grindService, userService)
@@ -50,6 +58,8 @@ func main() {
 	taskCtrl := api.NewTaskController(taskService, grindService)
 	messageCtrl := api.NewMessageController(userService, messageService, grindService)
 	interviewCtrl := api.NewInterviewController(interviewService, userService, taskService)
+	paymentCtrl := api.NewPaymentController(userService, paymentService)
+	profileCtrl := api.NewProfileController(userService)
 
 	// define routes
 	v1 := router.Group("/api/v1")
@@ -67,15 +77,30 @@ func main() {
 		v1.POST("tasks/finish", taskCtrl.FinishTodayTaskAPI)
 		v1.GET("tasks/today", taskCtrl.GetTodayTaskAPI)
 		v1.GET("tasks/:id", taskCtrl.GetTaskAPI)
-		v1.GET("messages", messageCtrl.GetMessageAPI)
-		v1.POST("messages/:id/read", messageCtrl.ReadMessageAPI)
-		v1.POST("messages/:id/invitation/create", messageCtrl.CreateInvitationAPI)
-		v1.POST("messages/:id/invitation/accept", messageCtrl.AcceptInvitationAPI)
-		v1.POST("messages/:id/invitation/reject", messageCtrl.RejectInvitationAPI)
 		v1.POST("interviews/llm", interviewCtrl.LLMWebhookAPI)
 		v1.POST("interviews/start", interviewCtrl.StartInterviewAPI)
 		v1.POST("interviews/:id/response", interviewCtrl.SaveAgentResponseAPI)
 		v1.POST("interviews/:id/end", interviewCtrl.EndInterviewAPI)
+		v1.POST("payments/payment-intent", paymentCtrl.PaymentIntentAPI)
+		v1.POST("payments/save-card-intent", paymentCtrl.SaveCardIntentAPI)
+		v1.POST("payments/save-card", paymentCtrl.SaveCardAPI)
+		v1.POST("payments/force-charging", paymentCtrl.ForceInvestigateDuedPenaltyAPI)
+		v1.GET("payments/methods", paymentCtrl.GetAvailablePaymentMethodsAPI)
+		v1.POST("payments/methods/select-default", paymentCtrl.SelectPaymentMethodAPI)
+		v1.GET("users/exists", userCtrl.CheckUserExistsAPI)
+		v1.PATCH("users/update-profile", profileCtrl.UpdateProfileAPI)
+		v1.GET("messages", messageCtrl.GetMessageAPI)
+		v1.POST("messages/invitation", messageCtrl.CreateInvitationAPI)
+		v1.POST("messages/:id/invitation/accept", messageCtrl.AcceptInvitationAPI)
+		v1.POST("messages/:id/invitation/reject", messageCtrl.RejectInvitationAPI)
+		v1.GET("messages/sent", messageCtrl.GetSentMessageAPI)
+		v1.POST("messages/:id/read", messageCtrl.ReadMessageAPI)
+	}
+
+	v2 := router.Group("/api/v2")
+	{
+		v2.POST("login", userCtrl.LoginAPIV2)
+		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
 	}
 
 	router.Run(":8080")

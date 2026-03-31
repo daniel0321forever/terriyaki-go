@@ -9,6 +9,7 @@ import (
 	"gorm.io/datatypes"
 )
 
+// specific to code interview for now
 type InterviewSession struct {
 	ID                  string
 	UserID              string

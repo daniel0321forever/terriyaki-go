@@ -236,12 +236,39 @@ internal/
    ```
    Replace `user` with your actual system username (run `whoami` to find it).
 
-4. **Run the backend server:**
+## Running the Backend Server
+
+### Start the Backend
+
+```bash
+go run internal/cmd/api_server/main.go
+```
+
+The backend will start on **http://localhost:8080**
+
+### Check Server Health
+
+Verify the server is running by visiting:
+
+- **Health Check (v1)**: [http://localhost:8080/api/v1/ping](http://localhost:8080/api/v1/ping)
+- **OpenAPI Documentation**: See [`openapi.yaml`](../openapi.yaml) in the project root for complete API contract
+
+### Test Authentication & API
+
+1. **Register a new user:**
    ```bash
-   go run internal/cmd/api_server/main.go
+   curl -X POST http://localhost:8080/api/v1/register \
+     -H "Content-Type: application/json" \
+     -d '{"username":"testuser","email":"test@example.com","password":"password123"}'
    ```
 
-   The backend will start on **http://localhost:8080**
+2. **Verify response contains JWT token** — use this token for authenticated requests:
+   ```bash
+   curl http://localhost:8080/api/v1/verify-token \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN"
+   ```
+
+3. **View all available endpoints** in `openapi.yaml`
 
 ## Running Tests
 

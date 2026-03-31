@@ -2,11 +2,11 @@ package services
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 	"gorm.io/datatypes"
@@ -65,7 +65,7 @@ func (s *TaskService) GetTaskByID(request dto.GetTaskDTO) (*dto.TaskDTO, error) 
 func (s *TaskService) GetTodayTask(request dto.GetTodayTaskDTO) (*dto.TaskDTO, error) {
 	task, err := s.taskRepo.FindTodayTask(request.UserID, request.GrindID)
 	if err != nil {
-		return nil, errors.New("task not found")
+		return nil, config.ErrTaskNotFound
 	}
 	return mappers.TaskToTaskDTO(task), nil
 }

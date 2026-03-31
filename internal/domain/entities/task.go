@@ -10,13 +10,14 @@ import (
 
 // TODO: this is not general enough and only designed for leetcode
 type Task struct {
-	ID                 string
-	TaskType           string
-	UserID             string
-	GrindID            string
-	Date               time.Time
-	FinishedTime       time.Time
-	Completed          bool
+	ID           string
+	TaskType     string
+	UserID       string
+	GrindID      string
+	Date         time.Time
+	FinishedTime time.Time
+	Completed    bool
+	// LeetCode-specific fields
 	ProblemTitle       *string
 	ProblemDescription *string
 	ProblemURL         *string

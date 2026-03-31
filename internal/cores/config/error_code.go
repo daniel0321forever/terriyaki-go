@@ -1,5 +1,11 @@
 package config
 
+import (
+	"errors"
+	"fmt"
+)
+
+// HTTP Response Error Codes
 var (
 	ERROR_CODE_DUPLICATE_ENTRY              string = "DUPLICATE_ENTRY"
 	ERROR_CODE_INVALID_EMAIL                string = "INVALID_EMAIL"
@@ -17,3 +23,33 @@ var (
 	ERROR_CODE_PARTICIPANT_EXISTS           string = "PARTICIPANT_EXISTS"
 	ERROR_CODE_SAME_RECIPIENT_AND_SENDER    string = "SAME_RECIPIENT_AND_SENDER"
 )
+
+// Service-level Sentinel Errors (used for business logic error handling)
+
+// Grind service errors
+var (
+	ErrGrindNotFound             = errors.New("grind not found")
+	ErrNoOngoingGrind            = errors.New("no ongoing grind found")
+	ErrUserNotParticipatingOrQuit = errors.New("user not participating or quitted")
+	ErrTasksNotFound             = errors.New("tasks not found")
+	ErrGrindUpdateFailed         = errors.New("grind update failed")
+	ErrParticipationNotFound     = errors.New("participation not found")
+	ErrUserIsNotParticipant      = errors.New("user is not a participant of the grind")
+	ErrParticipationUpdateFailed = errors.New("participation update failed")
+)
+
+// User service errors
+var (
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUserAlreadyExists = errors.New("user with this email already exists")
+)
+
+// Task service errors
+var (
+	ErrTaskNotFound = errors.New("task not found")
+)
+
+// Helper function for dynamic errors
+func ErrParticipationAlreadyExists(userID, grindID string) error {
+	return fmt.Errorf("already exists participation record for %s and %s", userID, grindID)
+}

@@ -1,5 +1,6 @@
 package entities
 
+// specific to Stripe for now
 type StripePaymentInfo struct {
 	UserID                string `json:"user_id" gorm:"not null"`
 	StripeCustomerID      string `json:"stripe_customer_id" gorm:"not null"`

@@ -1,10 +1,9 @@
 package services
 
 import (
-	"errors"
-
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
@@ -24,7 +23,7 @@ func (s *UserService) CreateUser(request dto.CreateUserDTO) (*dto.UserDTO, error
 	// Check if user already exists
 	existing, _ := s.userRepo.FindByEmail(request.Email)
 	if existing != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, config.ErrUserAlreadyExists
 	}
 
 	// Hash password
@@ -56,7 +55,7 @@ func (s *UserService) CreateUser(request dto.CreateUserDTO) (*dto.UserDTO, error
 func (s *UserService) GetUser(request dto.GetUserDTO) (*dto.UserDTO, error) {
 	user, err := s.userRepo.FindById(request.UserID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, config.ErrUserNotFound
 	}
 	return mappers.UserToUserDTO(user), nil
 }
@@ -64,7 +63,7 @@ func (s *UserService) GetUser(request dto.GetUserDTO) (*dto.UserDTO, error) {
 func (s *UserService) GetUserByEmail(request dto.GetUserByEmailDTO) (*dto.UserDTO, error) {
 	user, err := s.userRepo.FindByEmail(request.Email)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, config.ErrUserNotFound
 	}
 	return mappers.UserToUserDTO(user), nil
 }
@@ -81,7 +80,7 @@ func (s *UserService) VerifyPassword(request dto.VerifyPasswordDTO) bool {
 func (s *UserService) UpdateUser(request dto.UpdateUserDTO) (*dto.UserDTO, error) {
 	user, err := s.userRepo.FindById(request.UserID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, config.ErrUserNotFound
 	}
 
 	if request.Username != nil {

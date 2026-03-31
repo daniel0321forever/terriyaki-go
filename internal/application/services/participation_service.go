@@ -1,10 +1,9 @@
 package services
 
 import (
-	"errors"
-
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 )
 
@@ -27,7 +26,7 @@ func NewParticipationService(
 func (s *ParticipationService) GetParticipation(request dto.GetParticipation) (*dto.ParticipationDTO, error) {
 	participation, err := s.participationRepo.FindByParticipationId(request.ParticipationID)
 	if err != nil {
-		return nil, errors.New("participation not found")
+		return nil, config.ErrParticipationNotFound
 	}
 
 	return mappers.ParticipationToParticipationDTO(participation), nil
@@ -37,7 +36,7 @@ func (s *ParticipationService) GetParticipation(request dto.GetParticipation) (*
 func (s *ParticipationService) GetParticipationByUserAndGrind(request dto.GetParticipationByUserAndGrindDTO) (*dto.ParticipationDTO, error) {
 	participation, err := s.participationRepo.FindByUserAndGrind(request.UserID, request.GrindID)
 	if err != nil {
-		return nil, errors.New("participation not found")
+		return nil, config.ErrParticipationNotFound
 	}
 
 	return mappers.ParticipationToParticipationDTO(participation), nil
@@ -46,7 +45,7 @@ func (s *ParticipationService) GetParticipationByUserAndGrind(request dto.GetPar
 func (s *ParticipationService) UpdateParticipation(request dto.UpdateAddParticipationDTO) (*dto.ParticipationDTO, error) {
 	participation, err := s.participationRepo.FindByParticipationId(request.ParticipationID)
 	if err != nil {
-		return nil, errors.New("participation not found")
+		return nil, config.ErrParticipationNotFound
 	}
 	participation.MissedDays = request.MissedDays
 	participation.TotalPenalty = request.TotalPenalty
@@ -54,7 +53,7 @@ func (s *ParticipationService) UpdateParticipation(request dto.UpdateAddParticip
 	participation.QuittedAt = *request.QuittedAt
 	err = s.participationRepo.Update(participation)
 	if err != nil {
-		return nil, errors.New("grind update failed")
+		return nil, config.ErrGrindUpdateFailed
 	}
 	return mappers.ParticipationToParticipationDTO(participation), nil
 }

@@ -1,0 +1,969 @@
+openapi: 3.1.0
+info:
+  title: Habitat Platform API
+  description: Multi-habit accountability platform with LeetCode, Duolingo, and custom integrations
+  version: 1.0.0
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (v1)
+  - url: http://localhost:8080/api/v2
+    description: Local development (v2 - multi-habit support)
+
+tags:
+  - name: Auth
+    description: Authentication and token management
+  - name: Users
+    description: User profile and settings
+  - name: Grinds
+    description: Habit grinds and commitments
+  - name: Tasks
+    description: Daily habit tasks
+  - name: CompletionEvents
+    description: External habit signal ingestion (Duolingo, etc.)
+  - name: Invitations
+    description: Group invitations and messaging
+  - name: Interviews
+    description: AI coaching and interview sessions
+  - name: Payments
+    description: Payment methods and settlements
+  - name: Health
+    description: System health and observability
+
+paths:
+  /register:
+    post:
+      tags:
+        - Auth
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+                avatar:
+                  type: string
+                  example: https://example.com/avatar.jpg
+              required:
+                - username
+                - email
+                - password
+      responses:
+        "200":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: Login user (v1 - single grind)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /verify-token:
+    get:
+      tags:
+        - Auth
+      summary: Verify JWT token validity
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Token valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/update-profile:
+    patch:
+      tags:
+        - Users
+      summary: Update user profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                avatar:
+                  type: string
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+
+  /grinds:
+    post:
+      tags:
+        - Grinds
+      summary: Create new habit grind
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGrindRequest"
+      responses:
+        "200":
+          description: Grind created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/Grind"
+
+    get:
+      tags:
+        - Grinds
+      summary: List all user grinds
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of grinds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Grind"
+
+  /grinds/current:
+    get:
+      tags:
+        - Grinds
+      summary: Get current ongoing grind
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current grind
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/GrindWithTodayTask"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /grinds/{grindId}:
+    get:
+      tags:
+        - Grinds
+      summary: Get grind by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grind details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/Grind"
+
+    delete:
+      tags:
+        - Grinds
+      summary: Quit grind
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grind quit successfully
+
+  /grinds/{grindId}/progress:
+    get:
+      tags:
+        - Grinds
+      summary: Get grind progress and leaderboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grind progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskProgress"
+
+  /tasks/today:
+    get:
+      tags:
+        - Tasks
+      summary: Get today's task
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Today's task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+
+  /tasks/{taskId}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: set-problem
+          in: query
+          required: false
+          schema:
+            type: boolean
+            example: true
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+
+  /tasks/finish:
+    post:
+      tags:
+        - Tasks
+      summary: Mark task as completed (idempotent)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                taskId:
+                  type: string
+                code:
+                  type: string
+                codeLanguage:
+                  type: string
+              required:
+                - taskId
+      responses:
+        "200":
+          description: Task completed
+
+  /completion-events/ingest:
+    post:
+      tags:
+        - CompletionEvents
+      summary: Ingest external completion event (webhook)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionEventIngest"
+      responses:
+        "200":
+          description: Event ingested (idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  deduplicated:
+                    type: boolean
+
+  /completion-events:
+    get:
+      tags:
+        - CompletionEvents
+      summary: List completion events for user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: query
+          schema:
+            type: string
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum:
+              - leetcode
+              - duolingo
+              - manual
+      responses:
+        "200":
+          description: List of completion events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompletionEvent"
+
+  /messages:
+    get:
+      tags:
+        - Invitations
+      summary: Get received messages
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of received messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
+  /messages/sent:
+    get:
+      tags:
+        - Invitations
+      summary: Get sent messages
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of sent messages
+
+  /messages/invitation:
+    post:
+      tags:
+        - Invitations
+      summary: Create invitation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receiverEmail:
+                  type: string
+                  format: email
+                grindId:
+                  type: string
+              required:
+                - receiverEmail
+                - grindId
+      responses:
+        "200":
+          description: Invitation sent
+
+  /messages/{messageId}/invitation/accept:
+    post:
+      tags:
+        - Invitations
+      summary: Accept invitation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation accepted
+
+  /messages/{messageId}/invitation/reject:
+    post:
+      tags:
+        - Invitations
+      summary: Reject invitation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation rejected
+
+  /interviews/start:
+    post:
+      tags:
+        - Interviews
+      summary: Start interview session
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                taskId:
+                  type: string
+              required:
+                - taskId
+      responses:
+        "200":
+          description: Interview session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+
+  /interviews/{sessionId}/end:
+    post:
+      tags:
+        - Interviews
+      summary: End interview and trigger evaluation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Interview ended, evaluation queued
+
+  /payments/payment-intent:
+    post:
+      tags:
+        - Payments
+      summary: Create payment intent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: integer
+                  example: 500
+              required:
+                - amount
+      responses:
+        "200":
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+
+  /payments/save-card-intent:
+    post:
+      tags:
+        - Payments
+      summary: Create save card intent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cardDetails:
+                  type: string
+                  description: Encrypted card details
+      responses:
+        "200":
+          description: Save card intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+
+  /payments/save-card:
+    post:
+      tags:
+        - Payments
+      summary: Save card
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cardToken:
+                  type: string
+                  description: Tokenized card information
+      responses:
+        "200":
+          description: Card saved successfully
+
+  /payments/force-charging:
+    post:
+      tags:
+        - Payments
+      summary: Force charge overdue penalties
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Penalties charged successfully
+
+  /payments/methods/select-default:
+    post:
+      tags:
+        - Payments
+      summary: Select default payment method
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                methodId:
+                  type: string
+                  description: Payment method ID to set as default
+      responses:
+        "200":
+          description: Default payment method updated
+
+  /ping:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      responses:
+        "200":
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: pong
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        avatar:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+          description: JWT token
+        grind:
+          $ref: "#/components/schemas/Grind"
+          nullable: true
+
+    CreateGrindRequest:
+      type: object
+      properties:
+        duration:
+          type: integer
+          description: Duration in days
+          example: 30
+        budget:
+          type: integer
+          description: Budget in dollars
+          example: 100
+        habitType:
+          type: string
+          enum:
+            - coding_practice
+            - language_learning
+            - wellness
+            - productivity
+          example: coding_practice
+        startDate:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            type: string
+            format: email
+      required:
+        - duration
+        - budget
+        - startDate
+
+    Grind:
+      type: object
+      properties:
+        id:
+          type: string
+        duration:
+          type: integer
+        budget:
+          type: integer
+        habitType:
+          type: string
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        startDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    GrindWithTodayTask:
+      allOf:
+        - $ref: "#/components/schemas/Grind"
+        - type: object
+          properties:
+            taskToday:
+              $ref: "#/components/schemas/Task"
+              nullable: true
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        grindId:
+          type: string
+        userId:
+          type: string
+        habitType:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        problemTitle:
+          type: string
+          nullable: true
+        problemUrl:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        codeLanguage:
+          type: string
+          nullable: true
+
+    TaskProgress:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        completed:
+          type: integer
+        total:
+          type: integer
+        streak:
+          type: integer
+
+    CompletionEventIngest:
+      type: object
+      properties:
+        eventId:
+          type: string
+          description: Idempotency key (unique per provider + user)
+        provider:
+          type: string
+          enum:
+            - leetcode
+            - duolingo
+            - manual
+        habitType:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        evidenceType:
+          type: string
+          enum:
+            - api
+            - webhook
+            - extension
+            - manual
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        externalReference:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - eventId
+        - provider
+        - habitType
+        - completedAt
+        - evidenceType
+
+    CompletionEvent:
+      allOf:
+        - $ref: "#/components/schemas/CompletionEventIngest"
+        - type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        type:
+          type: string
+          enum:
+            - invitation
+            - invitation_accepted
+            - invitation_rejected
+        content:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        provider:
+          type: string
+          example: stripe
+        methodType:
+          type: string
+          enum:
+            - card
+            - wallet
+            - bank_transfer
+            - on_chain
+            - other  # Placeholder for future methods like smart contracts
+        lastFourDigits:
+          type: string
+        isDefault:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+              - charge
+              - settle_onchain
+              - refund
+        metadata:
+          type: object
+          additionalProperties: true  # Allows storing additional data for future methods
+        createdAt:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string

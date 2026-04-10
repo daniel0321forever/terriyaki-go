@@ -20,9 +20,9 @@ services:
   terriyaki-go-test:
     build:
       context: ..
-      dockerfile: test/Dockerfile
+      dockerfile: tests/Dockerfile
     container_name: terriyaki-go-test
-    command: [ "go", "test", "./test/integration/...", "-v" ]
+    command: [ "go", "test", "./tests/integration/...", "-v" ]
     volumes:
       - ../.:/src
     env_file:

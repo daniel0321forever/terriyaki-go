@@ -2,10 +2,10 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -70,7 +70,7 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 	// get body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println("Invalid request body, causing the following error:\n" + err.Error())
-		c.JSON(400, gin.H{"message": "Invalid request body: must provide integer 'amount'"})
+		RespondBadRequest(c, "Invalid request body: must provide integer 'amount'")
 		return
 	}
 
@@ -78,7 +78,7 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 	clientSecret, err := ctrl.paymentService.CreatePaymentIntent(int64(body.Amount))
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, "Internal Server Error")
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -118,7 +118,7 @@ func (ctrl *PaymentController) SaveCardIntentAPI(c *gin.Context) {
 	clientSecret, err := ctrl.paymentService.CreateSaveCardIntent()
 	if err != nil {
 		fmt.Println("Could not create save card intent:", err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 	// get body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println("Invalid request body, causing the following error:\n" + err.Error())
-		c.JSON(400, gin.H{"message": "Invalid request body: must provide string 'payment_method_id'", "errorCode": config.ERROR_CODE_BAD_REQUEST})
+		RespondBadRequest(c, "Invalid request body: must provide string 'payment_method_id'")
 		return
 	}
 
@@ -144,7 +144,7 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(401, gin.H{"message": "Unauthorized", "errorCode": config.ERROR_CODE_UNAUTHORIZED})
+		RespondUnauthorized(c, "Unauthorized")
 		return
 	}
 
@@ -157,7 +157,7 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 	_, err = ctrl.paymentService.SaveCard(saveCardDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -179,7 +179,7 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	_, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(401, gin.H{"message": "Unauthorized", "errorCode": config.ERROR_CODE_UNAUTHORIZED})
+		RespondUnauthorized(c, "Unauthorized")
 		return
 	}
 
@@ -187,7 +187,7 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 	pendingPayments, err := ctrl.paymentService.FindDuedPayments()
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -196,7 +196,7 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 		_, err := ctrl.paymentService.Charge(pendingPayment.StripePaymentInfo, pendingPayment.PaymentAmount)
 		if err != nil {
 			fmt.Println(err)
-			c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+			RespondInternalServerError(c, "Internal Server Error")
 			return
 		}
 	}
@@ -232,7 +232,7 @@ func (ctrl *PaymentController) GetAvailablePaymentMethodsAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(401, gin.H{"message": "Unauthorized", "errorCode": config.ERROR_CODE_UNAUTHORIZED})
+		RespondUnauthorized(c, "Unauthorized")
 		return
 	}
 
@@ -240,12 +240,11 @@ func (ctrl *PaymentController) GetAvailablePaymentMethodsAPI(c *gin.Context) {
 	availablePaymentMethods, err := ctrl.paymentService.GetAvailablePaymentMethods(dto.GetAvailablePaymentMethodsDTO{UserID: userID})
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
-	// return the available payment methods
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"payment_methods":        availablePaymentMethods.PaymentInfos,
 		"default_payment_method": availablePaymentMethods.DefaultPaymentInfo.StripePaymentMethodID,
 	})
@@ -275,14 +274,14 @@ func (ctrl *PaymentController) SelectPaymentMethodAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(401, gin.H{"message": "Unauthorized", "errorCode": config.ERROR_CODE_UNAUTHORIZED})
+		RespondUnauthorized(c, "Unauthorized")
 		return
 	}
 
 	// get body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println("Invalid request body, causing the following error:\n" + err.Error())
-		c.JSON(400, gin.H{"message": "Invalid request body: must provide string 'stripe_payment_method_id'", "errorCode": config.ERROR_CODE_BAD_REQUEST})
+		RespondBadRequest(c, "Invalid request body: must provide string 'stripe_payment_method_id'")
 		return
 	}
 
@@ -293,20 +292,7 @@ func (ctrl *PaymentController) SelectPaymentMethodAPI(c *gin.Context) {
 	})
 	if err != nil {
 		fmt.Println("Error updating user's default payment method:", err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
-		return
-	}
-
-	// return the success message
-	c.JSON(200, gin.H{"message": "Default payment method updated successfully"})
-}
-
-func (ctrl *PaymentController) TestForceChargingAPI(c *gin.Context) {
-	// authenticate the user
-	token := c.GetHeader("Authorization")
-	userID, err := utils.VerifyUserAccess(token)
-	if err != nil {
-		c.JSON(401, gin.H{"message": "Unauthorized", "errorCode": config.ERROR_CODE_UNAUTHORIZED})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -314,7 +300,7 @@ func (ctrl *PaymentController) TestForceChargingAPI(c *gin.Context) {
 	availablePaymentMethods, err := ctrl.paymentService.GetAvailablePaymentMethods(dto.GetAvailablePaymentMethodsDTO{UserID: userID})
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
 
@@ -322,7 +308,9 @@ func (ctrl *PaymentController) TestForceChargingAPI(c *gin.Context) {
 	_, err = ctrl.paymentService.Charge(availablePaymentMethods.DefaultPaymentInfo, 100)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(500, gin.H{"message": "Internal Server Error", "errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR})
+		RespondInternalServerError(c, "Internal Server Error")
 		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Payment method selected and charged successfully"})
 }

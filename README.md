@@ -270,78 +270,84 @@ Verify the server is running by visiting:
 
 3. **View all available endpoints** in `openapi.yaml`
 
+## Testing Strategy
+
+This project uses four testing levels. Keep each level in its owning layer to keep responsibilities clear and avoid mixing intent.
+
+### 1. Entity Tests (Domain)
+
+- **Scope**: Domain invariants and constructors only.
+- **Location**: `internal/domain/entities/*_test.go`
+- **Dependencies**: No database, no HTTP.
+- **Command**:
+  ```bash
+  go test -v ./internal/domain/entities/...
+  ```
+
+### 2. Application Tests (Service Layer)
+
+- **Scope**: Use-case orchestration and error mapping using repository mocks.
+- **Location**: `internal/application/services/*_test.go`
+- **Dependencies**: Mock repositories from `internal/domain/mocks`.
+- **Command**:
+  ```bash
+  go test -v ./internal/application/services/...
+  ```
+
+### 3. Repository Integration Tests (Infrastructure Adapter)
+
+- **Scope**: Validate GORM/Postgres adapter behavior with real database semantics.
+- **Location**: `internal/infrastructure/db/postgres/*_integration_test.go`
+- **Build tag**: `integration`
+- **Runtime**: Docker/Testcontainers required.
+- **Command**:
+  ```bash
+  go test -tags=integration -v ./internal/infrastructure/db/postgres/...
+  ```
+
+### 4. End-to-End API Tests (Frontend-facing contract)
+
+- **Scope**: Full request path from HTTP handlers through services to persistence.
+- **Location**: `tests/integration/*_test.go`
+- **Dependencies**: Real DB connection (test env) and router wiring.
+- **Command**:
+  ```bash
+  go test -v ./tests/integration/...
+  ```
+
+### Why This Separation?
+
+- **Fast feedback**: Entity and service tests run quickly and isolate logic regressions.
+- **SQL confidence**: Repository integration tests catch schema/query issues early.
+- **Frontend stability**: End-to-end tests protect response contracts and status/error behaviors.
+- **DDD alignment**: Test code sits with the layer that owns the behavior.
+
 ## Running Tests
 
-### Option 1: Run Tests Locally
+### Option 1: Local commands by level
 
-1. **Create a test database:**
-   ```bash
-   createdb terriyaki_test
-   ```
-   Or using psql:
-   ```bash
-   /opt/homebrew/opt/postgresql@15/bin/psql -U $(whoami) -d postgres -c "CREATE DATABASE terriyaki_test;"
-   ```
+```bash
+# Domain
+go test -v ./internal/domain/entities/...
 
-2. **Update your `.env` file with test database credentials:**
-   Add these lines to your `.env` file:
-   ```
-   TEST_POSTGRES_HOST=localhost
-   TEST_POSTGRES_PORT=5432
-   TEST_POSTGRES_USER=your_username
-   TEST_POSTGRES_DB=terriyaki_test
-   TEST_POSTGRES_PASSWORD=
-   TEST_POSTGRES_SSLMODE=disable
-   GORM_SILENT=true
-   ```
-   Replace `your_username` with your system username.
+# Application
+go test -v ./internal/application/services/...
 
-3. **Run all integration tests:**
-   ```bash
-   go test -v ./test/integration/...
-   ```
+# Repository integration (requires Docker)
+go test -tags=integration -v ./internal/infrastructure/db/postgres/...
 
-4. **Run specific test file:**
-   ```bash
-   go test -v ./test/integration -run TestCreateGrindAPI
-   ```
-
-### Option 2: Run Tests in Docker
-
-This approach creates isolated test containers with their own PostgreSQL database, ensuring a clean test environment.
-
-1. **Navigate to the test directory:**
-   ```bash
-   cd test
-   ```
-
-2. **Build and run tests:**
-   ```bash
-   docker-compose up --abort-on-container-exit
-   ```
-   This will:
-   - Start a PostgreSQL test database container
-   - Build the test container with your code
-   - Run all integration tests
-   - Stop automatically when tests complete
-
-3. **Clean up containers:**
-   ```bash
-   docker-compose down
-   ```
-
-4. **Rebuild after code changes:**
-   ```bash
-   docker-compose build
-   docker-compose up --abort-on-container-exit
-   ```
-
-### Test Results
-
-All tests should pass. You should see output ending with:
+# End-to-end API
+go test -v ./tests/integration/...
 ```
-PASS
-ok      github.com/daniel0321forever/terriyaki-go/test/integration  [time]
+
+### Option 2: Docker Compose for E2E harness
+
+From backend root:
+
+```bash
+cd tests
+docker-compose up --abort-on-container-exit
+docker-compose down
 ```
 
 ## Local Integration Test

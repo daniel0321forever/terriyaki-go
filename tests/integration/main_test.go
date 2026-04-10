@@ -4,15 +4,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/daniel0321forever/terriyaki-go/test"
+	"github.com/daniel0321forever/terriyaki-go/tests"
 	"github.com/gin-gonic/gin"
 )
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
-	test.Setup()
+	tests.Setup()
 	exitCode := m.Run()
-	test.Teardown()
+	tests.Teardown()
 
 	os.Exit(exitCode)
 }

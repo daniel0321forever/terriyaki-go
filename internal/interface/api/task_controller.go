@@ -6,7 +6,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -31,10 +30,8 @@ func (ctrl *TaskController) GetTaskAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	_, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
+		return
 	}
 
 	taskID := c.Param("id")
@@ -46,11 +43,7 @@ func (ctrl *TaskController) GetTaskAPI(c *gin.Context) {
 	}
 	taskDTO, err := ctrl.taskService.GetTaskByID(getTaskDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "Task not found",
-			"task":      nil,
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "Task not found")
 		return
 	}
 
@@ -64,10 +57,7 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -76,11 +66,7 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 	}
 	grindDTO, err := ctrl.grindService.GetOngoingGrindByUserID(getGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "Grind not found",
-			"task":      nil,
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "Grind not found")
 		return
 	}
 	getTaskDTO := dto.GetTodayTaskDTO{
@@ -95,10 +81,7 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "Error fetching task",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "Error fetching task")
 		return
 	}
 
@@ -112,10 +95,7 @@ func (ctrl *TaskController) FinishTodayTaskAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 	getGrindDTO := dto.GetOngoingGrindDTO{
@@ -125,11 +105,7 @@ func (ctrl *TaskController) FinishTodayTaskAPI(c *gin.Context) {
 	// perhaps makeing grindId an input to the FinishTodayTaskAPI?
 	grindDTO, err := ctrl.grindService.GetOngoingGrindByUserID(getGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "Grind not found",
-			"grind":     nil,
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "Grind not found")
 		return
 	}
 
@@ -139,39 +115,26 @@ func (ctrl *TaskController) FinishTodayTaskAPI(c *gin.Context) {
 	}
 	taskDTO, err := ctrl.taskService.GetTodayTask(getTaskDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "Task not found",
-			"task":      nil,
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "Task not found")
 		return
 	}
 
 	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid request body",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
 	code, ok := body["code"].(string)
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid code",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid code")
 		return
 	}
 
 	codeLanguage, ok := body["language"].(string)
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid code language",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid code language")
 		return
 	}
 
@@ -192,10 +155,7 @@ func (ctrl *TaskController) GetProgressRecordsAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -212,10 +172,7 @@ func (ctrl *TaskController) GetProgressRecordsAPI(c *gin.Context) {
 
 	progressRecords, err := ctrl.taskService.GetTaskProgressList(getTaskProgressListDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "Error fetching progress records",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "Error fetching progress records")
 		return
 	}
 

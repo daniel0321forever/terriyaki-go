@@ -5,7 +5,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -29,15 +28,12 @@ func (ctrl *ProfileController) UpdateProfileAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
 	if err := c.ShouldBindJSON(&Request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
@@ -49,10 +45,7 @@ func (ctrl *ProfileController) UpdateProfileAPI(c *gin.Context) {
 
 	userDTO, err := ctrl.userService.UpdateUser(updateUserDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   err.Error(),
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, err.Error())
 		return
 	}
 

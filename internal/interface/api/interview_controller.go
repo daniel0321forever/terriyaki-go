@@ -10,7 +10,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -45,7 +44,7 @@ func (ctrl *InterviewController) LLMWebhookAPI(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		RespondBadRequest(c, "Invalid request")
 		return
 	}
 
@@ -55,13 +54,13 @@ func (ctrl *InterviewController) LLMWebhookAPI(c *gin.Context) {
 	}
 	sessionDTO, err := ctrl.interviewService.GetSession(getInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+		RespondNotFound(c, "Session not found")
 		return
 	}
 
 	// 3. Check if session is still active
 	if sessionDTO.Status != "active" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session is not active"})
+		RespondBadRequest(c, "Session is not active")
 		return
 	}
 
@@ -110,7 +109,7 @@ func (ctrl *InterviewController) LLMWebhookAPI(c *gin.Context) {
 		}
 		_, err := ctrl.interviewService.UpdateSession(updateInterviewDTO)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+			RespondInternalServerError(c, "Failed to update session")
 			return
 		}
 
@@ -128,7 +127,7 @@ func (ctrl *InterviewController) LLMWebhookAPI(c *gin.Context) {
 	}
 	_, err = ctrl.interviewService.UpdateSession(updateInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+		RespondInternalServerError(c, "Failed to update session")
 		return
 	}
 
@@ -169,7 +168,7 @@ func (ctrl *InterviewController) StartInterviewAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -178,10 +177,7 @@ func (ctrl *InterviewController) StartInterviewAPI(c *gin.Context) {
 	}
 	_, err = ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "user not found")
 		return
 	}
 
@@ -190,10 +186,9 @@ func (ctrl *InterviewController) StartInterviewAPI(c *gin.Context) {
 		TaskID string `json:"task_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		RespondBadRequest(c, "invalid request")
 		return
 	}
-
 	// 3. Get task details
 	getTaskDTO := dto.GetTaskDTO{
 		TaskID:             body.TaskID,
@@ -201,7 +196,7 @@ func (ctrl *InterviewController) StartInterviewAPI(c *gin.Context) {
 	}
 	taskDTO, err := ctrl.taskService.GetTaskByID(getTaskDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		RespondNotFound(c, "task not found")
 		return
 	}
 
@@ -212,21 +207,20 @@ func (ctrl *InterviewController) StartInterviewAPI(c *gin.Context) {
 	}
 	sessionDTO, err := ctrl.interviewService.CreateSession(createInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		RespondInternalServerError(c, "failed to create session")
 		return
 	}
-	sessionID := sessionDTO.ID
 
 	// 5. Generate agent token (simple UUID for now)
 	agentToken := uuid.New().String()
+	sessionID := sessionDTO.ID
 
 	// 6. Get ElevenLabs agent ID from environment
 	agentID := os.Getenv("ELEVENLABS_AGENT_ID")
 	if agentID == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "no ElevenLabs API key in .env"})
+		RespondInternalServerError(c, "no ElevenLabs API key in .env")
 		return
 	}
-
 	// 7. Build LLM endpoint URL
 	llmEndpoint := os.Getenv("BACKEND_URL") + "/api/v1/interviews/llm"
 
@@ -245,7 +239,7 @@ func (ctrl *InterviewController) EndInterviewAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -257,16 +251,12 @@ func (ctrl *InterviewController) EndInterviewAPI(c *gin.Context) {
 	}
 	sessionDTO, err := ctrl.interviewService.GetSession(getInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error":     "session not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "session not found")
 		return
 	}
-
 	// 3. Verify session belongs to user
 	if sessionDTO.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		RespondForbidden(c, "unauthorized")
 		return
 	}
 
@@ -296,10 +286,9 @@ func (ctrl *InterviewController) EndInterviewAPI(c *gin.Context) {
 	}
 	updatedSessionDTO, err := ctrl.interviewService.UpdateSession(updateInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+		RespondInternalServerError(c, "Failed to update session")
 		return
 	}
-
 	// 6. Generate evaluation from conversation history
 	fmt.Printf("[END_INTERVIEW] Generating evaluation for session %s\n", sessionID)
 	evaluation := ctrl.GenerateEvaluation(updatedSessionDTO)
@@ -319,7 +308,7 @@ func (ctrl *InterviewController) SaveAgentResponseAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -331,13 +320,13 @@ func (ctrl *InterviewController) SaveAgentResponseAPI(c *gin.Context) {
 	}
 	sessionDTO, err := ctrl.interviewService.GetSession(getInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		RespondNotFound(c, "session not found")
 		return
 	}
 
 	// 3. Verify session belongs to user
 	if sessionDTO.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		RespondForbidden(c, "unauthorized")
 		return
 	}
 
@@ -346,10 +335,9 @@ func (ctrl *InterviewController) SaveAgentResponseAPI(c *gin.Context) {
 		Message string `json:"message"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		RespondBadRequest(c, "invalid request")
 		return
 	}
-
 	// 5. Parse conversation history
 	var conversationHistory []map[string]interface{}
 	if sessionDTO.ConversationHistory != nil {
@@ -391,7 +379,7 @@ func (ctrl *InterviewController) SaveAgentResponseAPI(c *gin.Context) {
 	}
 	_, err = ctrl.interviewService.UpdateSession(updateInterviewDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+		RespondInternalServerError(c, "Failed to update session")
 		return
 	}
 

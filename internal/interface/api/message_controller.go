@@ -6,7 +6,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -33,10 +32,7 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -45,14 +41,11 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 	}
 	_, err = ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "user not found")
 		return
 	}
 
-	offsetStr := c.Query("offset")
+	offsetStr := c.DefaultQuery("offset", "0")
 	offset, _ := strconv.Atoi(offsetStr)
 	limitStr := c.Query("limit")
 	limit, _ := strconv.Atoi(limitStr)
@@ -64,10 +57,7 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 	}
 	messageDTOs, err := ctrl.messageService.GetAllMessagesForReceiver(getMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -87,10 +77,7 @@ func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -99,10 +86,7 @@ func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
 	}
 	_, err = ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "user not found")
 		return
 	}
 
@@ -115,10 +99,7 @@ func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
 
 	messageDTO, err := ctrl.messageService.UpdateMessageReadStatus(updateMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -132,20 +113,14 @@ func (ctrl *MessageController) CreateInvitationAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
 	// Get user from user id
 	body := map[string]any{}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid request body",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
@@ -160,10 +135,7 @@ func (ctrl *MessageController) CreateInvitationAPI(c *gin.Context) {
 	}
 	messageDTO, err := ctrl.messageService.CreateInvitationMessage(createMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -178,10 +150,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -189,10 +158,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	getUserDTO := dto.GetUserDTO{UserID: userID}
 	accepterDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "user not found")
 		return
 	}
 
@@ -201,10 +167,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	getMessageDTO := dto.GetMessageDTO{MessageID: messageID}
 	messageDTO, err := ctrl.messageService.GetMessageByID(getMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "inviting message not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "inviting message not found")
 		return
 	}
 	grindID := messageDTO.InvitationGrind.ID
@@ -216,10 +179,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 	err = ctrl.grindService.AddParticipation(addParticipationDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -227,10 +187,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
 	invitorDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "invitor not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "invitor not found")
 		return
 	}
 
@@ -241,10 +198,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 	_, err = ctrl.messageService.UpdateMessageInvitationAcceptedStatus(updateMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -256,10 +210,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 	messageDTO, err = ctrl.messageService.CreateInvitationAcceptedMessage(createMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -267,10 +218,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	getGrindDTO := dto.GetGrindDTO{GrindID: grindID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -290,10 +238,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -301,10 +246,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	getUserDTO := dto.GetUserDTO{UserID: userID}
 	rejectorDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_USER_NOT_FOUND,
-		})
+		RespondNotFound(c, "user not found")
 		return
 	}
 
@@ -313,10 +255,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	getMessageDTO := dto.GetMessageDTO{MessageID: messageID}
 	messageDTO, err := ctrl.messageService.GetMessageByID(getMessageDTO)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "inviting message not found",
-			"errorCode": config.ERROR_CODE_INVITING_MESSAGE_NOT_FOUND,
-		})
+		RespondNotFound(c, "inviting message not found")
 		return
 	}
 
@@ -343,10 +282,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrind.ID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -370,10 +306,7 @@ func (ctrl *MessageController) GetSentMessageAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -384,10 +317,7 @@ func (ctrl *MessageController) GetSentMessageAPI(c *gin.Context) {
 
 	messages, err := ctrl.messageService.GetAllMessageFromSender(userID, offset, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 

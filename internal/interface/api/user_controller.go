@@ -8,7 +8,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -32,7 +31,7 @@ func NewUserController(
 func (ctrl *UserController) RegisterAPI(c *gin.Context) {
 	var body map[string]string
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
@@ -50,28 +49,19 @@ func (ctrl *UserController) RegisterAPI(c *gin.Context) {
 	userDTO, err := ctrl.userService.CreateUser(createUserDTO)
 	if err != nil {
 		if strings.Contains(err.Error(), "23505") {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message":   "email already exists",
-				"errorCode": config.ERROR_CODE_DUPLICATE_ENTRY,
-			})
+			RespondConflict(c, "email already exists")
 			return
 		}
 
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
 	token, err := utils.GenerateJWTToken(userDTO.ID)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -86,10 +76,7 @@ func (ctrl *UserController) RegisterAPI(c *gin.Context) {
 func (ctrl *UserController) LoginAPI(c *gin.Context) {
 	var body map[string]string
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid request body",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
@@ -104,19 +91,13 @@ func (ctrl *UserController) LoginAPI(c *gin.Context) {
 	// get user
 	userDTO, err := ctrl.userService.GetUserByEmail(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid email",
-			"errorCode": config.ERROR_CODE_INVALID_EMAIL,
-		})
+		RespondBadRequest(c, "invalid email")
 		return
 	}
 
 	// verify password
 	if !utils.VerifyPassword(password, userDTO.HashedPassword) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid password",
-			"errorCode": config.ERROR_CODE_INVALID_PASSWORD,
-		})
+		RespondBadRequest(c, "invalid password")
 		return
 	}
 
@@ -124,10 +105,7 @@ func (ctrl *UserController) LoginAPI(c *gin.Context) {
 	token, err := utils.GenerateJWTToken(userDTO.ID)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -138,10 +116,7 @@ func (ctrl *UserController) LoginAPI(c *gin.Context) {
 	grindDTO, err := ctrl.grindService.GetOngoingGrindByUserID(getGrindDTO)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -160,10 +135,7 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindJSON(&Request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid request body",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
@@ -178,19 +150,13 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 	// get user
 	userDTO, err := ctrl.userService.GetUserByEmail(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid email",
-			"errorCode": config.ERROR_CODE_INVALID_EMAIL,
-		})
+		RespondBadRequest(c, "invalid email")
 		return
 	}
 
 	// verify password
 	if !utils.VerifyPassword(password, userDTO.HashedPassword) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid password",
-			"errorCode": config.ERROR_CODE_INVALID_PASSWORD,
-		})
+		RespondBadRequest(c, "invalid password")
 		return
 	}
 
@@ -198,10 +164,7 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 	token, err := utils.GenerateJWTToken(userDTO.ID)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -214,20 +177,16 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			fmt.Println("No current grind found")
 			c.JSON(http.StatusOK, gin.H{
-				"message":   "No current grind found",
-				"user":      userDTO,
-				"token":     token,
-				"grinds":    make(map[string]gin.H),
-				"errorCode": config.ERROR_CODE_NOT_FOUND,
+				"message": "No current grind found",
+				"user":    userDTO,
+				"token":   token,
+				"grinds":  make(map[string]gin.H),
 			})
 			return
 		}
 
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -244,10 +203,7 @@ func (ctrl *UserController) VerifyTokenAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -257,10 +213,7 @@ func (ctrl *UserController) VerifyTokenAPI(c *gin.Context) {
 	userDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -271,10 +224,7 @@ func (ctrl *UserController) VerifyTokenAPI(c *gin.Context) {
 	grindDTO, err := ctrl.grindService.GetOngoingGrindByUserID(getGrindDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -290,10 +240,7 @@ func (ctrl *UserController) VerifyTokenAPIV2(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -303,10 +250,7 @@ func (ctrl *UserController) VerifyTokenAPIV2(c *gin.Context) {
 	userDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -318,13 +262,7 @@ func (ctrl *UserController) VerifyTokenAPIV2(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "no grinds found",
-			"grinds":    make(map[string]gin.H),
-			"user":      userDTO,
-			"token":     token,
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondInternalServerError(c, "no grinds found")
 		return
 	}
 
@@ -339,10 +277,7 @@ func (ctrl *UserController) LogoutAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	_, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -353,10 +288,7 @@ func (ctrl *UserController) LogoutAPI(c *gin.Context) {
 func (ctrl *UserController) CheckUserExistsAPI(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "missing email query parameter",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "missing email query parameter")
 		return
 	}
 

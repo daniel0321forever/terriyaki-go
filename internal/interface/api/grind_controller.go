@@ -8,7 +8,6 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -37,10 +36,7 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -50,24 +46,18 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 	}
 	userDTO, err := ctrl.userService.GetUser(getUserDTO)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "user not found",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "user not found")
 		return
 	}
 
 	var body map[string]any
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message":   "invalid request body",
-			"errorCode": config.ERROR_CODE_BAD_REQUEST,
-		})
+		RespondBadRequest(c, "invalid request body")
 		return
 	}
 
-	duration := int(body["duration"].(float64))
+	duration, _ := strconv.Atoi(body["duration"].(string))
 	budget := int(body["budget"].(float64))
 	startDate, _ := time.Parse(time.RFC3339, body["startDate"].(string))
 	createGrindDTO := dto.CreateGrindDTO{
@@ -89,10 +79,7 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -116,10 +103,7 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 			}
 			ctrl.grindService.DeleteGrind(deleteGrindDTO)
 
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message":   "Participant " + participantEmail + " not found",
-				"errorCode": config.ERROR_CODE_USER_NOT_FOUND,
-			})
+			RespondNotFound(c, "Participant "+participantEmail+" not found")
 			return
 		}
 
@@ -145,10 +129,7 @@ func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -159,10 +140,7 @@ func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil || grindDTO == nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message":   "grind not found",
-			"errorCode": config.ERROR_CODE_NOT_FOUND,
-		})
+		RespondNotFound(c, "grind not found")
 		return
 	}
 
@@ -176,10 +154,7 @@ func (ctrl *GrindController) GetUserCurrentGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "Unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "Unauthorized")
 		return
 	}
 
@@ -188,10 +163,7 @@ func (ctrl *GrindController) GetUserCurrentGrindAPI(c *gin.Context) {
 	}
 	grindDTO, err := ctrl.grindService.GetOngoingGrindByUserID(getGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -205,10 +177,7 @@ func (ctrl *GrindController) GetAllUserGrindsAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -219,10 +188,7 @@ func (ctrl *GrindController) GetAllUserGrindsAPI(c *gin.Context) {
 	grindDTOs, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -236,10 +202,7 @@ func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -257,10 +220,7 @@ func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {
 	grind, err := ctrl.grindService.UpdateGrind(updateGrindDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -271,10 +231,7 @@ func (ctrl *GrindController) DeleteGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	_, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -285,10 +242,7 @@ func (ctrl *GrindController) DeleteGrindAPI(c *gin.Context) {
 	err = ctrl.grindService.DeleteGrind(deleteGrindDTO)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -300,10 +254,7 @@ func (ctrl *GrindController) DeleteAllGrindsAPI(c *gin.Context) {
 	err := ctrl.grindService.DeleteAllGrinds()
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
@@ -315,10 +266,7 @@ func (ctrl *GrindController) QuitGrindAPI(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message":   "unauthorized",
-			"errorCode": config.ERROR_CODE_UNAUTHORIZED,
-		})
+		RespondUnauthorized(c, "unauthorized")
 		return
 	}
 
@@ -330,10 +278,7 @@ func (ctrl *GrindController) QuitGrindAPI(c *gin.Context) {
 
 	participationDTO, err := ctrl.grindService.QuitGrind(quitGrindDTO)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message":   "internal server error",
-			"errorCode": config.ERROR_CODE_INTERNAL_SERVER_ERROR,
-		})
+		RespondInternalServerError(c, "internal server error")
 		return
 	}
 

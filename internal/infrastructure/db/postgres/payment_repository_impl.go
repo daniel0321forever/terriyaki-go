@@ -59,7 +59,7 @@ func (*GormStripePaymentInfoRepository) Create(
 	result := Db.Create(&stripePaymentInfo)
 
 	// check error
-	if result.Error == nil {
+	if result.Error != nil {
 		return nil, result.Error
 	}
 

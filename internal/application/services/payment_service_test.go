@@ -62,7 +62,7 @@ func TestStripePaymentServiceFindDuedPayments(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	grindRepo.On("FindDuedGrinds").Return([]*entities.Grind{{
-		ID: "g1",
+		ID:           "g1",
 		Participants: []entities.User{{ID: "u1"}},
 	}}, nil)
 

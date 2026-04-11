@@ -1,21 +1,19 @@
 package mappers
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/container"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
-// Converts Grind entity to GroupGrindDTO
-func GrindToGroupGrindDTO(grind *entities.Grind) *dto.GroupGrindDTO {
+// BuildGroupGrindDTO constructs GroupGrindDTO from Grind-related entities
+func BuildGroupGrindDTO(grind *entities.Grind, participants []entities.User) *dto.GroupGrindDTO {
 	// Convert Tasks
 	tasks := grind.Tasks
 	taskProgressDTOs := make([]dto.TaskProgressDTO, 0, len(tasks))
 	for i := range tasks {
-		taskProgressDTO := TaskToTaskProgressDTO(&tasks[i])
+			taskProgressDTO := BuildTaskProgressDTO(&tasks[i])
 		if taskProgressDTO != nil {
 			taskProgressDTOs = append(taskProgressDTOs, *taskProgressDTO)
 		}
@@ -33,18 +31,12 @@ func GrindToGroupGrindDTO(grind *entities.Grind) *dto.GroupGrindDTO {
 	}
 
 	if todayTask != nil {
-		todayTaskDTO = TaskToTaskDTO(todayTask)
+		todayTaskDTO = BuildTaskDTO(todayTask)
 	}
 
-	// Convert participants (users)
-	participants, err := container.Repos.UserRepository.FindByGrindID(grind.ID)
-	if err != nil {
-		fmt.Println("Error finding participants by grind ID:", err)
-		panic(err)
-	}
 	participantsDTOs := make([]dto.UserDTO, 0, len(participants))
 	for _, participant := range participants {
-		participantsDTOs = append(participantsDTOs, *UserToUserDTO(&participant))
+		participantsDTOs = append(participantsDTOs, *BuildUserDTO(&participant))
 	}
 
 	// get today's task
@@ -62,7 +54,8 @@ func GrindToGroupGrindDTO(grind *entities.Grind) *dto.GroupGrindDTO {
 	}
 }
 
-func GrindToMessageGrindDTO(grind *entities.Grind) *dto.MessageGrindDTO {
+// BuildMessageGrindDTO constructs MessageGrindDTO from Grind-related entity
+func BuildMessageGrindDTO(grind *entities.Grind) *dto.MessageGrindDTO {
 	return &dto.MessageGrindDTO{
 		Duration:     grind.Duration,
 		StartDate:    grind.StartDate,

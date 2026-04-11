@@ -19,6 +19,11 @@ func NewUserService(userRepo repositories.UserRepository) *UserService {
 	}
 }
 
+// Convert User entity to User DTO (including related entity fetching from DB)
+func (s *UserService) toUserDTO(user *entities.User) *dto.UserDTO {
+	return mappers.BuildUserDTO(user)
+}
+
 func (s *UserService) CreateUser(request dto.CreateUserDTO) (*dto.UserDTO, error) {
 	// Check if user already exists
 	existing, _ := s.userRepo.FindByEmail(request.Email)
@@ -49,7 +54,7 @@ func (s *UserService) CreateUser(request dto.CreateUserDTO) (*dto.UserDTO, error
 		return nil, err
 	}
 
-	return mappers.UserToUserDTO(user), nil
+	return s.toUserDTO(user), nil
 }
 
 func (s *UserService) GetUser(request dto.GetUserDTO) (*dto.UserDTO, error) {
@@ -57,7 +62,7 @@ func (s *UserService) GetUser(request dto.GetUserDTO) (*dto.UserDTO, error) {
 	if err != nil {
 		return nil, config.ErrUserNotFound
 	}
-	return mappers.UserToUserDTO(user), nil
+	return s.toUserDTO(user), nil
 }
 
 func (s *UserService) GetUserByEmail(request dto.GetUserByEmailDTO) (*dto.UserDTO, error) {
@@ -65,7 +70,7 @@ func (s *UserService) GetUserByEmail(request dto.GetUserByEmailDTO) (*dto.UserDT
 	if err != nil {
 		return nil, config.ErrUserNotFound
 	}
-	return mappers.UserToUserDTO(user), nil
+	return s.toUserDTO(user), nil
 }
 
 func (s *UserService) DeleteUser(request dto.DeleteUserDTO) error {
@@ -98,5 +103,5 @@ func (s *UserService) UpdateUser(request dto.UpdateUserDTO) (*dto.UserDTO, error
 		return nil, err
 	}
 
-	return mappers.UserToUserDTO(user), nil
+	return s.toUserDTO(user), nil
 }

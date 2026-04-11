@@ -7,8 +7,8 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
-// InterviewSessionToInterviewSessionDTO converts InterviewSession entity to InterviewSessionDTO
-func InterviewSessionToInterviewSessionDTO(session *entities.InterviewSession) *dto.InterviewSessionDTO {
+// BuildInterviewSessionDTO constructs InterviewSessionDTO from InterviewSession-related entity
+func BuildInterviewSessionDTO(session *entities.InterviewSession) *dto.InterviewSessionDTO {
 	var conversationHistory interface{}
 	if session.ConversationHistory != nil {
 		// datatypes.JSON is a type alias for []byte, so we can unmarshal it directly

@@ -21,6 +21,11 @@ func NewInterviewService(sessionRepo repositories.InterviewSessionRepository) *I
 	}
 }
 
+// Convert InterviewSession entity to InterviewSession DTO (including related entity fetching from DB)
+func (s *InterviewService) toInterviewSessionDTO(session *entities.InterviewSession) *dto.InterviewSessionDTO {
+	return mappers.BuildInterviewSessionDTO(session)
+}
+
 func (s *InterviewService) CreateSession(request dto.CreateInterviewSessionDTO) (*dto.InterviewSessionDTO, error) {
 	// Create session entity using constructor (if it exists) or directly
 	session, err := entities.NewInterviewSession(request.UserID, request.TaskID)
@@ -33,7 +38,7 @@ func (s *InterviewService) CreateSession(request dto.CreateInterviewSessionDTO) 
 		return nil, err
 	}
 
-	return mappers.InterviewSessionToInterviewSessionDTO(session), nil
+	return s.toInterviewSessionDTO(session), nil
 }
 
 func (s *InterviewService) GetSession(request dto.GetInterviewSessionDTO) (*dto.InterviewSessionDTO, error) {
@@ -41,7 +46,7 @@ func (s *InterviewService) GetSession(request dto.GetInterviewSessionDTO) (*dto.
 	if err != nil {
 		return nil, errors.New("session not found")
 	}
-	return mappers.InterviewSessionToInterviewSessionDTO(session), nil
+	return s.toInterviewSessionDTO(session), nil
 }
 
 func (s *InterviewService) UpdateSession(request dto.UpdateInterviewSessionDTO) (*dto.InterviewSessionDTO, error) {
@@ -71,6 +76,6 @@ func (s *InterviewService) UpdateSession(request dto.UpdateInterviewSessionDTO) 
 		return nil, err
 	}
 
-	return mappers.InterviewSessionToInterviewSessionDTO(session), nil
+	return s.toInterviewSessionDTO(session), nil
 }
 

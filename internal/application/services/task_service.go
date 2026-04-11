@@ -8,6 +8,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 	"gorm.io/datatypes"
 )
@@ -20,6 +21,16 @@ func NewTaskService(taskRepo repositories.TaskRepository) *TaskService {
 	return &TaskService{
 		taskRepo: taskRepo,
 	}
+}
+
+// Convert Task entity to Task DTO (including related entity fetching from DB)
+func (s *TaskService) toTaskDTO(task *entities.Task) *dto.TaskDTO {
+	return mappers.BuildTaskDTO(task)
+}
+
+// Convert Task entity to TaskProgressDTO (including related entity fetching from DB)
+func (s *TaskService) toTaskProgressDTO(task *entities.Task) *dto.TaskProgressDTO {
+	return mappers.BuildTaskProgressDTO(task)
 }
 
 func (s *TaskService) GetTaskByID(request dto.GetTaskDTO) (*dto.TaskDTO, error) {
@@ -59,7 +70,7 @@ func (s *TaskService) GetTaskByID(request dto.GetTaskDTO) (*dto.TaskDTO, error) 
 		}
 	}
 
-	return mappers.TaskToTaskDTO(task), nil
+	return s.toTaskDTO(task), nil
 }
 
 func (s *TaskService) GetTodayTask(request dto.GetTodayTaskDTO) (*dto.TaskDTO, error) {
@@ -67,7 +78,7 @@ func (s *TaskService) GetTodayTask(request dto.GetTodayTaskDTO) (*dto.TaskDTO, e
 	if err != nil {
 		return nil, config.ErrTaskNotFound
 	}
-	return mappers.TaskToTaskDTO(task), nil
+	return s.toTaskDTO(task), nil
 }
 
 func (s *TaskService) GetTaskProgressList(request dto.GetTaskProgressListDTO) ([]*dto.TaskProgressDTO, error) {
@@ -79,7 +90,7 @@ func (s *TaskService) GetTaskProgressList(request dto.GetTaskProgressListDTO) ([
 
 	var progressRecordsDTO []*dto.TaskProgressDTO
 	for _, task := range taskRecords {
-		progressRecordsDTO = append(progressRecordsDTO, mappers.TaskToTaskProgressDTO(&task))
+		progressRecordsDTO = append(progressRecordsDTO, s.toTaskProgressDTO(&task))
 	}
 
 	return progressRecordsDTO, nil

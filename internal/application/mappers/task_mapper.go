@@ -8,8 +8,8 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
-// TaskToTaskDTO converts Task entity to TaskDTO
-func TaskToTaskDTO(task *entities.Task) *dto.TaskDTO {
+// BuildTaskDTO constructs Task DTO from Task-related entity
+func BuildTaskDTO(task *entities.Task) *dto.TaskDTO {
 	var topicTags interface{}
 	if task.ProblemTopicTags != nil {
 		json.Unmarshal(task.ProblemTopicTags, &topicTags)
@@ -33,7 +33,8 @@ func TaskToTaskDTO(task *entities.Task) *dto.TaskDTO {
 	}
 }
 
-func TaskToTaskProgressDTO(task *entities.Task) *dto.TaskProgressDTO {
+// BuildTaskProgressDTO constructs TaskProgressDTO from Task-related entity
+func BuildTaskProgressDTO(task *entities.Task) *dto.TaskProgressDTO {
 	status := "pending"
 	if task.Completed {
 		status = "completed"

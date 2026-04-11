@@ -37,6 +37,21 @@ func NewGrindService(
 	}
 }
 
+// Convert Grind entity to Grind DTO (including related entity fetching from DB)
+func (s *GrindService) toGroupGrindDTO(grind *entities.Grind) (*dto.GroupGrindDTO, error) {
+	participants, err := s.userRepo.FindByGrindID(grind.ID)
+	if err != nil {
+		return nil, config.ErrUserNotFound
+	}
+
+	return mappers.BuildGroupGrindDTO(grind, participants), nil
+}
+
+// Convert Grind entity to Participation DTO (including related entity fetching from DB)
+func (s *GrindService) toParticipationDTO(participation *entities.Participation) *dto.ParticipationDTO {
+	return mappers.BuildParticipationDTO(participation)
+}
+
 // Create grind with just one single user (initialization)
 func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupGrindDTO, error) {
 	// 1. Create grind
@@ -87,7 +102,7 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 	}
 	grind.Tasks = tasks
 
-	return mappers.GrindToGroupGrindDTO(grind), nil
+	return s.toGroupGrindDTO(grind)
 }
 
 // GetOngoingGrindByUserID combines data fetching with business rules
@@ -116,7 +131,7 @@ func (s *GrindService) GetOngoingGrindByUserID(request dto.GetOngoingGrindDTO) (
 	}
 	grind.Tasks = tasks
 
-	return mappers.GrindToGroupGrindDTO(grind), nil
+	return s.toGroupGrindDTO(grind)
 }
 
 /*
@@ -138,7 +153,7 @@ func (s *GrindService) GetGrind(request dto.GetGrindDTO) (*dto.GroupGrindDTO, er
 		return nil, config.ErrTasksNotFound
 	}
 	grind.Tasks = tasks
-	return mappers.GrindToGroupGrindDTO(grind), nil
+	return s.toGroupGrindDTO(grind)
 }
 
 func (s *GrindService) GetAllUserGrinds(request dto.GetAllUserGrindsDTO) (map[string]*dto.GroupGrindDTO, error) {
@@ -154,7 +169,11 @@ func (s *GrindService) GetAllUserGrinds(request dto.GetAllUserGrindsDTO) (map[st
 		}
 
 		grind.Tasks = tasks
-		output[grind.ID] = mappers.GrindToGroupGrindDTO(grind)
+		grindDTO, dtoErr := s.toGroupGrindDTO(grind)
+		if dtoErr != nil {
+			return nil, dtoErr
+		}
+		output[grind.ID] = grindDTO
 	}
 	return output, nil
 }
@@ -175,7 +194,7 @@ func (s *GrindService) UpdateGrind(request dto.UpdateGrindDTO) (*dto.GroupGrindD
 		return nil, config.ErrTasksNotFound
 	}
 	grind.Tasks = tasks
-	return mappers.GrindToGroupGrindDTO(grind), nil
+	return s.toGroupGrindDTO(grind)
 }
 
 func (s *GrindService) DeleteGrind(request dto.DeleteGrindDTO) error {
@@ -270,5 +289,5 @@ func (s *GrindService) QuitGrind(request dto.QuitGrindDTO) (*dto.ParticipationDT
 		return nil, config.ErrParticipationUpdateFailed
 	}
 
-	return mappers.ParticipationToParticipationDTO(participation), nil
+	return s.toParticipationDTO(participation), nil
 }

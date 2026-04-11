@@ -16,11 +16,35 @@ type MessageService struct {
 	grindRepo   repositories.GrindRepository
 }
 
-func NewMessageService(messageRepo repositories.MessageRepository, userRepo repositories.UserRepository) *MessageService {
+func NewMessageService(messageRepo repositories.MessageRepository, userRepo repositories.UserRepository, grindRepo repositories.GrindRepository) *MessageService {
 	return &MessageService{
 		messageRepo: messageRepo,
 		userRepo:    userRepo,
+		grindRepo:   grindRepo,
 	}
+}
+
+// Convert Message entity to Message DTO (including related entity fetching from DB)
+func (s *MessageService) toMessageDTO(message *entities.Message) (*dto.MessageDTO, error) {
+	sender, err := s.userRepo.FindById(message.SenderID)
+	if err != nil {
+		return nil, err
+	}
+
+	receiver, err := s.userRepo.FindById(message.ReceiverID)
+	if err != nil {
+		return nil, err
+	}
+
+	var invitationGrind *entities.Grind
+	if message.InvitationGrindID != "" {
+		grind, err := s.grindRepo.FindById(message.InvitationGrindID)
+		if err == nil {
+			invitationGrind = grind
+		}
+	}
+
+	return mappers.BuildMessageDTO(message, sender, receiver, invitationGrind), nil
 }
 
 func (s *MessageService) CreateInvitationMessage(request dto.CreateInvitationMessageDTO) (*dto.MessageDTO, error) {
@@ -49,7 +73,7 @@ func (s *MessageService) CreateInvitationMessage(request dto.CreateInvitationMes
 		return nil, err
 	}
 
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) CreateInvitationAcceptedMessage(request dto.CreateInvitationAcceptedMessageDTO) (*dto.MessageDTO, error) {
@@ -73,7 +97,7 @@ func (s *MessageService) CreateInvitationAcceptedMessage(request dto.CreateInvit
 		return nil, err
 	}
 
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) CreateInvitationRejectedMessage(request dto.CreateInvitationRejectedMessageDTO) (*dto.MessageDTO, error) {
@@ -96,7 +120,7 @@ func (s *MessageService) CreateInvitationRejectedMessage(request dto.CreateInvit
 		return nil, err
 	}
 
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) GetMessageByID(request dto.GetMessageDTO) (*dto.MessageDTO, error) {
@@ -104,7 +128,7 @@ func (s *MessageService) GetMessageByID(request dto.GetMessageDTO) (*dto.Message
 	if err != nil {
 		return nil, errors.New("grind not found")
 	}
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) GetAllMessagesForReceiver(request dto.GetAllMessagesForReceiverDTO) ([]*dto.MessageDTO, error) {
@@ -114,7 +138,11 @@ func (s *MessageService) GetAllMessagesForReceiver(request dto.GetAllMessagesFor
 	}
 	var output []*dto.MessageDTO
 	for _, message := range messages {
-		output = append(output, mappers.MessageToMessageDTO(message))
+		messageDTO, dtoErr := s.toMessageDTO(message)
+		if dtoErr != nil {
+			return nil, dtoErr
+		}
+		output = append(output, messageDTO)
 	}
 	return output, nil
 }
@@ -133,7 +161,7 @@ func (s *MessageService) UpdateMessageReadStatus(request dto.UpdateMessageReadSt
 		return nil, err
 	}
 
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) UpdateMessageInvitationAcceptedStatus(request dto.UpdateMessageInvitationAcceptedStatusDTO) (*dto.MessageDTO, error) {
@@ -150,7 +178,7 @@ func (s *MessageService) UpdateMessageInvitationAcceptedStatus(request dto.Updat
 		return nil, err
 	}
 
-	return mappers.MessageToMessageDTO(message), nil
+	return s.toMessageDTO(message)
 }
 
 func (s *MessageService) GetAllMessageFromSender(senderID string, offset, limit int) ([]*dto.MessageDTO, error) {
@@ -160,7 +188,11 @@ func (s *MessageService) GetAllMessageFromSender(senderID string, offset, limit 
 	}
 	var output []*dto.MessageDTO
 	for _, message := range messages {
-		output = append(output, mappers.MessageToMessageDTO(message))
+		messageDTO, dtoErr := s.toMessageDTO(message)
+		if dtoErr != nil {
+			return nil, dtoErr
+		}
+		output = append(output, messageDTO)
 	}
 	return output, nil
 }

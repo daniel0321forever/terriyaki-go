@@ -4,6 +4,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 )
 
@@ -22,6 +23,11 @@ func NewParticipationService(
 	}
 }
 
+// Convert Participation entity to Participation DTO (including related entity fetching from DB)
+func (s *ParticipationService) toParticipationDTO(participation *entities.Participation) *dto.ParticipationDTO {
+	return mappers.BuildParticipationDTO(participation)
+}
+
 // GetParticipation retrieves a participation record by id
 func (s *ParticipationService) GetParticipation(request dto.GetParticipation) (*dto.ParticipationDTO, error) {
 	participation, err := s.participationRepo.FindByParticipationId(request.ParticipationID)
@@ -29,7 +35,7 @@ func (s *ParticipationService) GetParticipation(request dto.GetParticipation) (*
 		return nil, config.ErrParticipationNotFound
 	}
 
-	return mappers.ParticipationToParticipationDTO(participation), nil
+	return s.toParticipationDTO(participation), nil
 }
 
 // GetParticipationByUserAndGrind retrieves a participation record by user and grind
@@ -39,7 +45,7 @@ func (s *ParticipationService) GetParticipationByUserAndGrind(request dto.GetPar
 		return nil, config.ErrParticipationNotFound
 	}
 
-	return mappers.ParticipationToParticipationDTO(participation), nil
+	return s.toParticipationDTO(participation), nil
 }
 
 func (s *ParticipationService) UpdateParticipation(request dto.UpdateAddParticipationDTO) (*dto.ParticipationDTO, error) {
@@ -55,5 +61,5 @@ func (s *ParticipationService) UpdateParticipation(request dto.UpdateAddParticip
 	if err != nil {
 		return nil, config.ErrGrindUpdateFailed
 	}
-	return mappers.ParticipationToParticipationDTO(participation), nil
+	return s.toParticipationDTO(participation), nil
 }

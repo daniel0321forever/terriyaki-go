@@ -56,6 +56,7 @@ type GroupGrindDTO struct {
 	TodayTask    *TaskDTO          `json:"taskToday,omitempty"`
 }
 
+// What is MessageGrindDTO?
 type MessageGrindDTO struct {
 	ID           string    `json:"id"`
 	Duration     int32     `json:"duration"` // in days

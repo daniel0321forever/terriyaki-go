@@ -5,8 +5,8 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
-// Converts User entity to UserDTO
-func UserToUserDTO(user *entities.User) *dto.UserDTO {
+// BuildUserDTO constructs User DTO from User-related entity
+func BuildUserDTO(user *entities.User) *dto.UserDTO {
 	return &dto.UserDTO{
 		ID:             user.ID,
 		Username:       user.Username,

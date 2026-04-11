@@ -21,7 +21,7 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	userService := services.NewUserService(userRepo)
 	grindService := services.NewGrindService(grindRepo, userRepo, taskRepo, participationRepo, messageRepo)
 	taskService := services.NewTaskService(taskRepo)
-	messageService := services.NewMessageService(messageRepo, userRepo)
+	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
 	interviewService := services.NewInterviewService(interviewSessionRepo)
 	paymentService := services.NewStripePaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo)
 

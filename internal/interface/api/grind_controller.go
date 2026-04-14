@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -57,9 +58,39 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 		return
 	}
 
-	duration, _ := strconv.Atoi(body["duration"].(string))
-	budget := int(body["budget"].(float64))
-	startDate, _ := time.Parse(time.RFC3339, body["startDate"].(string))
+	var duration int
+	switch v := body["duration"].(type) {
+		case string:
+			parsed, parseErr := strconv.Atoi(v)
+			if parseErr != nil {
+				RespondBadRequest(c, "invalid duration")
+				return
+			}
+			duration = parsed
+		case float64:
+			duration = int(v)
+		default:
+			RespondBadRequest(c, "invalid duration")
+			return
+	}
+
+	budgetValue, ok := body["budget"].(float64)
+	if !ok {
+		RespondBadRequest(c, "invalid budget")
+		return
+	}
+	budget := int(budgetValue)
+
+	startDateText, ok := body["startDate"].(string)
+	if !ok {
+		RespondBadRequest(c, "invalid startDate")
+		return
+	}
+	startDate, err := time.Parse(time.RFC3339, startDateText)
+	if err != nil {
+		RespondBadRequest(c, "invalid startDate")
+		return
+	}
 	createGrindDTO := dto.CreateGrindDTO{
 		CreatorID: userID,
 		Duration:  duration,
@@ -69,7 +100,7 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 	grindDTO, err := ctrl.grindService.CreateGroupGrind(createGrindDTO)
 
 	// Convert participant emails to slice of strings
-	participants := body["participants"].([]interface{})
+	participants, _ := body["participants"].([]interface{})
 	participantEmails := make([]string, 0, len(participants))
 	for _, p := range participants {
 		if email, ok := p.(string); ok {
@@ -145,7 +176,6 @@ func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Grind fetched successfully",
 		"grind":   grindDTO,
 	})
 }
@@ -168,7 +198,6 @@ func (ctrl *GrindController) GetUserCurrentGrindAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Grind fetched successfully",
 		"grind":   grindDTO,
 	})
 }
@@ -192,10 +221,19 @@ func (ctrl *GrindController) GetAllUserGrindsAPI(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Grinds fetched successfully",
-		"grinds":  grindDTOs,
-	})
+	ids := make([]string, 0, len(grindDTOs))
+	for id := range grindDTOs {
+		ids = append(ids, id)
+	}
+	// Sort grind IDs in ascending lexicographic order.
+	sort.Strings(ids)
+
+	grinds := make([]*dto.GroupGrindDTO, 0, len(ids))
+	for _, id := range ids {
+		grinds = append(grinds, grindDTOs[id])
+	}
+
+	c.JSON(http.StatusOK, grinds)
 }
 
 func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {

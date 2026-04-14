@@ -1,16 +1,16 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type UserController struct {
@@ -26,6 +26,21 @@ func NewUserController(
 		grindService: gs,
 		userService:  us,
 	}
+}
+
+func sortedGroupGrindList(grindMap map[string]*dto.GroupGrindDTO) []*dto.GroupGrindDTO {
+	ids := make([]string, 0, len(grindMap))
+	for id := range grindMap {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	grinds := make([]*dto.GroupGrindDTO, 0, len(ids))
+	for _, id := range ids {
+		grinds = append(grinds, grindMap[id])
+	}
+
+	return grinds
 }
 
 func (ctrl *UserController) RegisterAPI(c *gin.Context) {
@@ -171,24 +186,18 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 	getGrindsDTO := dto.GetAllUserGrindsDTO{
 		UserID: userDTO.ID,
 	}
-	grinds, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
+	grindsMap, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
+	grinds := make([]*dto.GroupGrindDTO, 0)
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			fmt.Println("No current grind found")
-			c.JSON(http.StatusOK, gin.H{
-				"message": "No current grind found",
-				"user":    userDTO,
-				"token":   token,
-				"grinds":  make(map[string]gin.H),
-			})
+		if err != config.ErrGrindNotFound {
+			fmt.Println(err)
+			RespondInternalServerError(c, "internal server error")
 			return
 		}
-
-		fmt.Println(err)
-		RespondInternalServerError(c, "internal server error")
-		return
-	}
+	} else {
+		grinds = sortedGroupGrindList(grindsMap)
+}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
@@ -258,16 +267,20 @@ func (ctrl *UserController) VerifyTokenAPIV2(c *gin.Context) {
 		UserID: userDTO.ID,
 	}
 
-	grinds, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
+grindsMap, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
+	grinds := make([]*dto.GroupGrindDTO, 0)
 
 	if err != nil {
-		fmt.Println(err)
-		RespondInternalServerError(c, "no grinds found")
-		return
+		if err != config.ErrGrindNotFound {
+			fmt.Println(err)
+			RespondInternalServerError(c, "internal server error")
+			return
+		}
+	} else {
+		grinds = sortedGroupGrindList(grindsMap)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Token verified",
 		"user":    userDTO,
 		"grinds":  grinds,
 	})

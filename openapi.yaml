@@ -492,6 +492,12 @@ paths:
       responses:
         "200":
           description: List of sent messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
 
   /messages/invitation:
     post:
@@ -822,6 +828,10 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/Grind"
+        grinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/Grind"
 
     CreateGrindRequest:
       type: object

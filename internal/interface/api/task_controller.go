@@ -48,7 +48,6 @@ func (ctrl *TaskController) GetTaskAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Task found",
 		"task":    taskDTO,
 	})
 }
@@ -70,13 +69,13 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 		return
 	}
 	getTaskDTO := dto.GetTodayTaskDTO{
+		UserID:  userID,
 		GrindID: grindDTO.ID,
 	}
 	taskDTO, err := ctrl.taskService.GetTodayTask(getTaskDTO)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusOK, gin.H{
-				"message": "No task found for today",
 				"task":    nil,
 			})
 			return
@@ -86,7 +85,6 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Task found",
 		"task":    taskDTO,
 	})
 }
@@ -177,7 +175,6 @@ func (ctrl *TaskController) GetProgressRecordsAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":         "Progress records fetched successfully",
 		"progressRecords": progressRecords,
 	})
 }

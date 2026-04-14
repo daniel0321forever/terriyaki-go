@@ -67,10 +67,7 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 		responseData = append(responseData, messageDTO)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Messages fetched successfully",
-		"data":    responseData,
-	})
+	c.JSON(http.StatusOK, responseData)
 }
 
 func (ctrl *MessageController) ReadMessageAPI(c *gin.Context) {
@@ -321,8 +318,5 @@ func (ctrl *MessageController) GetSentMessageAPI(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Messages fetched successfully",
-		"data":    messages,
-	})
+	c.JSON(http.StatusOK, messages)
 }

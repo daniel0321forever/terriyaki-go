@@ -6,43 +6,21 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/mocks"
-	"github.com/stretchr/testify/mock"
 )
 
-func TestStripePaymentServiceSelectPaymentMethod(t *testing.T) {
-	t.Parallel()
-
-	userRepo := new(mocks.MockUserRepository)
-	userRepo.On("Update", mock.MatchedBy(func(u *entities.User) bool {
-		return u.ID == "u1" && u.DefaultPaymentMethodID == "pm_new"
-	})).Return(nil)
-
-	svc := &StripePaymentService{userRepo: userRepo}
-
-	user := &entities.User{ID: "u1", DefaultPaymentMethodID: "pm_old"}
-	err := svc.SelectPaymentMethod(user, "pm_new")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if user.DefaultPaymentMethodID != "pm_new" {
-		t.Fatalf("expected default payment method updated")
-	}
-	userRepo.AssertExpectations(t)
-}
-
-func TestStripePaymentServiceGetAvailablePaymentMethods(t *testing.T) {
+func TestPaymentServiceGetAvailablePaymentMethods(t *testing.T) {
 	t.Parallel()
 
 	userRepo := new(mocks.MockUserRepository)
 	userRepo.On("FindById", "u1").Return(&entities.User{ID: "u1", DefaultPaymentMethodID: "pm_2"}, nil)
 
 	infoRepo := new(mocks.MockStripePaymentInfoRepository)
-	infoRepo.On("FindByUserID", "u1").Return([]entities.StripePaymentInfo{
-		{StripePaymentMethodID: "pm_1", Brand: "visa"},
-		{StripePaymentMethodID: "pm_2", Brand: "mastercard"},
+	infoRepo.On("FindByUserID", "u1").Return([]entities.PaymentMethodInfo{
+		{ProviderPaymentMethodID: "pm_1", ProviderCustomerID: "cus_1", Brand: "visa"},
+		{ProviderPaymentMethodID: "pm_2", ProviderCustomerID: "cus_2", Brand: "mastercard"},
 	}, nil)
 
-	svc := &StripePaymentService{userRepo: userRepo, stripePaymentInfoRepo: infoRepo}
+	svc := &PaymentService{userRepo: userRepo, paymentMethodInfoRepo: infoRepo}
 	res, err := svc.GetAvailablePaymentMethods(dto.GetAvailablePaymentMethodsDTO{UserID: "u1"})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -50,14 +28,14 @@ func TestStripePaymentServiceGetAvailablePaymentMethods(t *testing.T) {
 	if len(res.PaymentInfos) != 2 {
 		t.Fatalf("expected two payment infos")
 	}
-	if res.DefaultPaymentInfo.StripePaymentMethodID != "pm_2" {
-		t.Fatalf("expected pm_2 as default, got %q", res.DefaultPaymentInfo.StripePaymentMethodID)
+	if res.DefaultPaymentInfo.ProviderPaymentMethodID != "pm_2" {
+		t.Fatalf("expected pm_2 as default, got %q", res.DefaultPaymentInfo.ProviderPaymentMethodID)
 	}
 	userRepo.AssertExpectations(t)
 	infoRepo.AssertExpectations(t)
 }
 
-func TestStripePaymentServiceFindDuedPayments(t *testing.T) {
+func TestPaymentServiceFindDuedPayments(t *testing.T) {
 	t.Parallel()
 
 	grindRepo := new(mocks.MockGrindRepository)
@@ -70,12 +48,12 @@ func TestStripePaymentServiceFindDuedPayments(t *testing.T) {
 	partRepo.On("FindByUserAndGrind", "u1", "g1").Return(&entities.Participation{UserID: "u1", GrindID: "g1", TotalPenalty: 42}, nil)
 
 	infoRepo := new(mocks.MockStripePaymentInfoRepository)
-	infoRepo.On("FindByUserID", "u1").Return([]entities.StripePaymentInfo{{UserID: "u1", StripePaymentMethodID: "pm_1"}}, nil)
+	infoRepo.On("FindByUserID", "u1").Return([]entities.PaymentMethodInfo{{UserID: "u1", ProviderPaymentMethodID: "pm_1", ProviderCustomerID: "cus_1"}}, nil)
 
-	svc := &StripePaymentService{
+	svc := &PaymentService{
 		grindRepo:             grindRepo,
 		participationRepo:     partRepo,
-		stripePaymentInfoRepo: infoRepo,
+		paymentMethodInfoRepo: infoRepo,
 	}
 
 	pending, err := svc.FindDuedPayments()

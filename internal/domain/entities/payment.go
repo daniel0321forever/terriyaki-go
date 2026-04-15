@@ -22,3 +22,114 @@ func NewStripePaymentInfo(userID string, stripeCustomerID string, stripePaymentM
 		ExpYear:               expYear,
 	}
 }
+
+// PaymentMethodInfo is the provider-neutral alias used by application/domain layers.
+// It is intentionally provider-neutral to support multi-rail payment methods.
+type PaymentMethodInfo struct {
+	UserID                  string          `json:"user_id" gorm:"not null"`
+	Provider                PaymentProvider `json:"provider" gorm:"not null"`
+	ProviderCustomerID      string          `json:"provider_customer_id" gorm:""`
+	ProviderPaymentMethodID string          `json:"provider_payment_method_id" gorm:"primaryKey;not null;unique"`
+	MethodType              string          `json:"method_type" gorm:""`
+	Brand                   string          `json:"brand" gorm:""`
+	Last4                   string          `json:"last4" gorm:""`
+	ExpMonth                int             `json:"exp_month" gorm:""`
+	ExpYear                 int             `json:"exp_year" gorm:""`
+	Network                 string          `json:"network" gorm:""`
+	WalletAddress           string          `json:"wallet_address" gorm:""`
+}
+
+func NewPaymentMethodInfo(provider PaymentProvider, userID string, providerCustomerID string, providerPaymentMethodID string, brand string, last4 string, expMonth int, expYear int) *PaymentMethodInfo {
+	return &PaymentMethodInfo{
+		UserID:                  userID,
+		Provider:                provider,
+		ProviderCustomerID:      providerCustomerID,
+		ProviderPaymentMethodID: providerPaymentMethodID,
+		MethodType:              "card",
+		Brand:                   brand,
+		Last4:                   last4,
+		ExpMonth:                expMonth,
+		ExpYear:                 expYear,
+	}
+}
+
+func NewPaymentMethodInfoFromStripe(info StripePaymentInfo) PaymentMethodInfo {
+	return PaymentMethodInfo{
+		UserID:                  info.UserID,
+		Provider:                PaymentProviderStripe,
+		ProviderCustomerID:      info.StripeCustomerID,
+		ProviderPaymentMethodID: info.StripePaymentMethodID,
+		MethodType:              "card",
+		Brand:                   info.Brand,
+		Last4:                   info.Last4,
+		ExpMonth:                info.ExpMonth,
+		ExpYear:                 info.ExpYear,
+	}
+}
+
+type PaymentProvider string
+
+const (
+	PaymentProviderStripe PaymentProvider = "stripe"
+	PaymentProviderSolana PaymentProvider = "solana"
+)
+
+type SettlementStatus string
+
+const (
+	SettlementStatusPending        SettlementStatus = "pending"
+	SettlementStatusAuthorized     SettlementStatus = "authorized"
+	SettlementStatusCaptured       SettlementStatus = "captured"
+	SettlementStatusFailed         SettlementStatus = "failed"
+	SettlementStatusRefunded       SettlementStatus = "refunded"
+	SettlementStatusSettledOnChain SettlementStatus = "settled_onchain"
+)
+
+// SettlementReference captures provider-neutral references used to reconcile settlements.
+type SettlementReference struct {
+	ProviderReference string `json:"provider_reference" gorm:""`
+	Network           string `json:"network" gorm:""`
+	TxHash            string `json:"tx_hash" gorm:""`
+	ContractAddress   string `json:"contract_address" gorm:""`
+	SettlementProof   string `json:"settlement_proof" gorm:""`
+	FinalizedAtUnix   int64  `json:"finalized_at_unix" gorm:""`
+}
+
+// SolanaPaymentMethodInfo is a placeholder model for wallet-based payment method linkage.
+// It does not alter current Stripe behavior and is reserved for future Solana implementation.
+type SolanaPaymentMethodInfo struct {
+	UserID        string `json:"user_id" gorm:"not null"`
+	Network       string `json:"network" gorm:"not null"`
+	WalletAddress string `json:"wallet_address" gorm:"not null"`
+	ProgramID     string `json:"program_id" gorm:""`
+}
+
+func NewSolanaPaymentMethodInfo(userID string, network string, walletAddress string, programID string) *SolanaPaymentMethodInfo {
+	return &SolanaPaymentMethodInfo{
+		UserID:        userID,
+		Network:       network,
+		WalletAddress: walletAddress,
+		ProgramID:     programID,
+	}
+}
+
+// SolanaSettlementInfo is a placeholder model for on-chain settlement tracking.
+type SolanaSettlementInfo struct {
+	UserID               string           `json:"user_id" gorm:"not null"`
+	Network              string           `json:"network" gorm:"not null"`
+	TransactionSignature string           `json:"transaction_signature" gorm:"not null"`
+	ContractAddress      string           `json:"contract_address" gorm:""`
+	Status               SettlementStatus `json:"status" gorm:"not null"`
+	FinalizedAtUnix      int64            `json:"finalized_at_unix" gorm:""`
+}
+
+func NewSolanaSettlementInfo(userID string, network string, signature string, contractAddress string, status SettlementStatus, finalizedAtUnix int64) *SolanaSettlementInfo {
+	return &SolanaSettlementInfo{
+		UserID:               userID,
+		Network:              network,
+		TransactionSignature: signature,
+		ContractAddress:      contractAddress,
+		Status:               status,
+		FinalizedAtUnix:      finalizedAtUnix,
+	}
+}

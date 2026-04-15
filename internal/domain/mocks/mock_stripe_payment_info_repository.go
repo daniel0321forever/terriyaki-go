@@ -9,34 +9,34 @@ type MockStripePaymentInfoRepository struct {
 	mock.Mock
 }
 
-func (m *MockStripePaymentInfoRepository) Create(userID, stripeCustomerID, stripePaymentMethodID string) (*entities.StripePaymentInfo, error) {
-	args := m.Called(userID, stripeCustomerID, stripePaymentMethodID)
+func (m *MockStripePaymentInfoRepository) Create(paymentMethodInfo *entities.PaymentMethodInfo) (*entities.PaymentMethodInfo, error) {
+	args := m.Called(paymentMethodInfo)
 	if args.Get(0) != nil {
-		return args.Get(0).(*entities.StripePaymentInfo), args.Error(1)
+		return args.Get(0).(*entities.PaymentMethodInfo), args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockStripePaymentInfoRepository) FindByID(id string) (*entities.StripePaymentInfo, error) {
+func (m *MockStripePaymentInfoRepository) FindByID(id string) (*entities.PaymentMethodInfo, error) {
 	args := m.Called(id)
 	if args.Get(0) != nil {
-		return args.Get(0).(*entities.StripePaymentInfo), args.Error(1)
+		return args.Get(0).(*entities.PaymentMethodInfo), args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockStripePaymentInfoRepository) FindByUserID(userID string) ([]entities.StripePaymentInfo, error) {
+func (m *MockStripePaymentInfoRepository) FindByUserID(userID string) ([]entities.PaymentMethodInfo, error) {
 	args := m.Called(userID)
 	if args.Get(0) != nil {
-		return args.Get(0).([]entities.StripePaymentInfo), args.Error(1)
+		return args.Get(0).([]entities.PaymentMethodInfo), args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockStripePaymentInfoRepository) Update(stripePaymentInfo *entities.StripePaymentInfo) (*entities.StripePaymentInfo, error) {
-	args := m.Called(stripePaymentInfo)
+func (m *MockStripePaymentInfoRepository) Update(paymentMethodInfo *entities.PaymentMethodInfo) (*entities.PaymentMethodInfo, error) {
+	args := m.Called(paymentMethodInfo)
 	if args.Get(0) != nil {
-		return args.Get(0).(*entities.StripePaymentInfo), args.Error(1)
+		return args.Get(0).(*entities.PaymentMethodInfo), args.Error(1)
 	}
 	return nil, args.Error(1)
 }

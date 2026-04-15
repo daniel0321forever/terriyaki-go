@@ -2,10 +2,10 @@ package repositories
 
 import "github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 
-type StripePaymentInfoRepository interface {
-	Create(userID string, stripeCustomerID string, stripePaymentMethodID string) (*entities.StripePaymentInfo, error)
-	FindByID(id string) (*entities.StripePaymentInfo, error)
-	FindByUserID(userID string) ([]entities.StripePaymentInfo, error)
-	Update(stripePaymentInfo *entities.StripePaymentInfo) (*entities.StripePaymentInfo, error)
-	Delete(stripePaymentMethodID string) error
+type PaymentMethodInfoRepository interface {
+	Create(paymentMethodInfo *entities.PaymentMethodInfo) (*entities.PaymentMethodInfo, error)
+	FindByID(id string) (*entities.PaymentMethodInfo, error)
+	FindByUserID(userID string) ([]entities.PaymentMethodInfo, error)
+	Update(paymentMethodInfo *entities.PaymentMethodInfo) (*entities.PaymentMethodInfo, error)
+	Delete(providerPaymentMethodID string) error
 }

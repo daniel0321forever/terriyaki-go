@@ -2,22 +2,14 @@ package services
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
-	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
-	"github.com/daniel0321forever/terriyaki-go/internal/types"
 	"github.com/redis/go-redis/v9"
-	"github.com/stripe/stripe-go/v84"
-	"github.com/stripe/stripe-go/v84/customer"
-	"github.com/stripe/stripe-go/v84/paymentintent"
-	"github.com/stripe/stripe-go/v84/paymentmethod"
-	"github.com/stripe/stripe-go/v84/setupintent"
-	"github.com/stripe/stripe-go/v84/transfer"
 )
 
+// Payment service interface
 type IPaymentService interface {
 	/*
 		Create a payment intent
@@ -34,47 +26,43 @@ type IPaymentService interface {
 
 	/*
 		Save a card
-		@param paymentInfo - the payment info
+		@param request - the save card request
 		@return the card id
 	*/
-	SaveCard(paymentInfo entities.StripePaymentInfo) error
+	SaveCard(request dto.SaveCardDTO) (*entities.PaymentMethodInfo, error)
 
 	/*
 		Charge a payment intent
 		@param amount - the amount to charge
 		@return the payment intent id
 	*/
-	Charge(paymentInfo entities.StripePaymentInfo, amount int64) (string, error)
+	Charge(paymentInfo entities.PaymentMethodInfo, amount int64) (string, error)
 
 	/*
 		Pay back a payment intent
-		@param paymentIntentID - the payment intent id
+		@param userStripeAccountID - the destination account id
+		@param amount - the amount to pay back
 		@return the payment intent id
 	*/
-	PayBack(paymentIntentID string) error
+	PayBack(userStripeAccountID string, amount int64) error
 
 	/*
 		Find dued payments
 		@param userID - the user id
 		@return the dued payments
 	*/
-	FindDuedPayments() ([]types.PendingPayment, error)
+	FindDuedPayments() ([]dto.PendingPaymentDTO, error)
 
 	/*
-		Select a payment method
-		@param user - the user
-		@param stripePaymentMethodID - the stripe payment method id
-		@return the result of the selection
+		Get available payment methods for user
+		@param request - the query request
+		@return available payment methods
 	*/
-	SelectPaymentMethod(user *entities.User, stripePaymentMethodID string) error
+	GetAvailablePaymentMethods(request dto.GetAvailablePaymentMethodsDTO) (*dto.AvailablePaymentMethodsDTO, error)
 }
 
-type StripePaymentService struct {
-	/*
-		The Stripe secret key
-		@type string
-	*/
-	StripeSecretKey string
+type PaymentService struct {
+	adapter PaymentGatewayAdapter
 
 	/*
 		The Redis client
@@ -104,33 +92,16 @@ type StripePaymentService struct {
 		The stripe payment info repository
 		@type *StripePaymentInfoRepository
 	*/
-	stripePaymentInfoRepo repositories.StripePaymentInfoRepository
+	paymentMethodInfoRepo repositories.PaymentMethodInfoRepository
 }
 
-func (s *StripePaymentService) selectPaymentMethod(user *entities.User, stripePaymentMethodID string) error {
-	user.DefaultPaymentMethodID = stripePaymentMethodID
-	err := s.userRepo.Update(user)
-	return err
-}
-
-func (s *StripePaymentService) getDefaultPaymentMethod(user *entities.User) (string, error) {
-	return user.DefaultPaymentMethodID, nil
-}
-
-func (s *StripePaymentService) attachPaymentMethodToCustomer(stripePaymentMethodID string, stripeCustomerID string) error {
-	attachParams := &stripe.PaymentMethodAttachParams{
-		Customer: stripe.String(stripeCustomerID),
-	}
-	paymentmethod.Attach(stripePaymentMethodID, attachParams)
-	return nil
-}
-
-func NewStripePaymentService(
+func NewPaymentService(
 	userRepo repositories.UserRepository,
 	grindRepo repositories.GrindRepository,
 	participationRepo repositories.ParticipationRepository,
-	stripePaymentInfoRepo repositories.StripePaymentInfoRepository,
-) *StripePaymentService {
+	paymentMethodInfoRepo repositories.PaymentMethodInfoRepository,
+	adapter PaymentGatewayAdapter,
+) *PaymentService {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password
@@ -138,53 +109,35 @@ func NewStripePaymentService(
 		Protocol: 2,
 	})
 
-	stripeSecretKey := os.Getenv(config.OS_ENV_STRIPE_SECRET_KEY)
-	if stripeSecretKey == "" {
+	if adapter == nil {
 		return nil
 	}
 
-	return &StripePaymentService{
-		StripeSecretKey:       stripeSecretKey,
+	return &PaymentService{
+		adapter:               adapter,
 		RedisClient:           rdb,
 		userRepo:              userRepo,
 		grindRepo:             grindRepo,
 		participationRepo:     participationRepo,
-		stripePaymentInfoRepo: stripePaymentInfoRepo,
+		paymentMethodInfoRepo: paymentMethodInfoRepo,
 	}
 }
 
-func (s *StripePaymentService) CreatePaymentIntent(amount int64) (string, error) {
-	stripe.Key = s.StripeSecretKey
-	params := &stripe.PaymentIntentParams{
-		Amount:   stripe.Int64(amount),
-		Currency: stripe.String(string(stripe.CurrencyUSD)),
-		// In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
-		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
-			Enabled: stripe.Bool(true),
-		},
-	}
-
-	pi, err := paymentintent.New(params)
-
-	if err != nil {
-		return "", err
-	}
-
-	return pi.ClientSecret, nil
+func (s *PaymentService) attachPaymentMethodToCustomer(stripePaymentMethodID string, stripeCustomerID string) error {
+	return s.adapter.AttachPaymentMethodToCustomer(stripePaymentMethodID, stripeCustomerID)
 }
 
-func (s *StripePaymentService) CreateSaveCardIntent() (string, error) {
-	stripe.Key = s.StripeSecretKey
-	si, _ := setupintent.New(&stripe.SetupIntentParams{
-		Usage: stripe.String("off_session"),
-	})
-
-	return si.ClientSecret, nil
+func (s *PaymentService) CreatePaymentIntent(amount int64) (string, error) {
+	return s.adapter.CreatePaymentIntent(amount)
 }
 
-func (s *StripePaymentService) SaveCard(
+func (s *PaymentService) CreateSaveCardIntent() (string, error) {
+	return s.adapter.CreateSaveCardIntent()
+}
+
+func (s *PaymentService) SaveCard(
 	request dto.SaveCardDTO,
-) (*entities.StripePaymentInfo, error) {
+) (*entities.PaymentMethodInfo, error) {
 
 	// create stripe customer if not exists
 	var stripeCustomerID string
@@ -197,114 +150,68 @@ func (s *StripePaymentService) SaveCard(
 	if user.StripeCustomerID != "" {
 		stripeCustomerID = user.StripeCustomerID
 	} else {
-		params := &stripe.CustomerParams{
-			Name:  stripe.String(user.Username),
-			Email: stripe.String(user.Email),
-		}
-		customer, err := customer.New(params)
+		createdCustomerID, err := s.adapter.CreateCustomer(user.Username, user.Email)
 		if err != nil {
 			return nil, err
 		}
 
-		fmt.Print("created customer id " + customer.ID + " for user " + user.Username)
-		stripeCustomerID = customer.ID
+		fmt.Print("created customer id " + createdCustomerID + " for user " + user.Username)
+		stripeCustomerID = createdCustomerID
 
 		user.StripeCustomerID = stripeCustomerID
-		err = s.selectPaymentMethod(user, request.StripePaymentMethodID)
+		user.DefaultPaymentMethodID = request.PaymentMethodID
+		err = s.userRepo.Update(user)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// attach the payment method to the customer
-	err = s.attachPaymentMethodToCustomer(request.StripePaymentMethodID, stripeCustomerID)
+	err = s.attachPaymentMethodToCustomer(request.PaymentMethodID, stripeCustomerID)
 	if err != nil {
 		return nil, err
 	}
 
-	// create instance
-	stripePaymentInfo := entities.NewStripePaymentInfo(
-		user.ID,
-		stripeCustomerID,
-		request.StripePaymentMethodID,
-		"",
-		"",
-		0,
-		0,
-	)
+	paymentMethodInfo, err := s.adapter.DescribePaymentMethod(request.PaymentMethodID)
+	if err != nil {
+		return nil, err
+	}
+	paymentMethodInfo.UserID = user.ID
+	paymentMethodInfo.ProviderCustomerID = stripeCustomerID
 
-	stripePaymentInfo, err = s.stripePaymentInfoRepo.Create(user.ID, stripeCustomerID, request.StripePaymentMethodID)
+	paymentMethodInfo, err = s.paymentMethodInfoRepo.Create(paymentMethodInfo)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return stripePaymentInfo, nil
+	return paymentMethodInfo, nil
 }
 
-func (s *StripePaymentService) Charge(paymentInfo entities.StripePaymentInfo, amount int64) (string, error) {
-	stripe.Key = s.StripeSecretKey
-
-	pi, err := paymentintent.New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(amount),
-		Currency:      stripe.String(string(stripe.CurrencyUSD)),
-		Customer:      stripe.String(paymentInfo.StripeCustomerID),
-		PaymentMethod: stripe.String(paymentInfo.StripePaymentMethodID),
-		OffSession:    stripe.Bool(true),
-		Confirm:       stripe.Bool(true),
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	return pi.ClientSecret, nil
+func (s *PaymentService) Charge(paymentInfo entities.PaymentMethodInfo, amount int64) (string, error) {
+	return s.adapter.Charge(paymentInfo.ProviderCustomerID, paymentInfo.ProviderPaymentMethodID, amount)
 }
 
-func (s *StripePaymentService) PayBack(userStripeAccountID string, amount int64) error {
-	stripe.Key = s.StripeSecretKey
-	payoutParams := &stripe.TransferParams{
-		Amount:      stripe.Int64(amount),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Destination: stripe.String(userStripeAccountID),
-	}
-
-	_, err := transfer.New(payoutParams)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (s *PaymentService) PayBack(userStripeAccountID string, amount int64) error {
+	return s.adapter.PayBack(userStripeAccountID, amount)
 }
 
-func (s *StripePaymentService) SelectPaymentMethod(user *entities.User, stripePaymentMethodID string) error {
-	return s.selectPaymentMethod(user, stripePaymentMethodID)
-}
-
-func (s *StripePaymentService) GetAvailablePaymentMethods(request dto.GetAvailablePaymentMethodsDTO) (*dto.AvailablePaymentMethodsDTO, error) {
-	stripe.Key = s.StripeSecretKey
-
+func (s *PaymentService) GetAvailablePaymentMethods(request dto.GetAvailablePaymentMethodsDTO) (*dto.AvailablePaymentMethodsDTO, error) {
 	user, err := s.userRepo.FindById(request.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// get payment infos
-	paymentInfos, err := s.stripePaymentInfoRepo.FindByUserID(request.UserID)
+	paymentInfos, err := s.paymentMethodInfoRepo.FindByUserID(request.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default payment method: %w", err)
 	}
 
 	// get default one
-	defaultPaymentMethodID, err := s.getDefaultPaymentMethod(user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get payment infos: %w", err)
-	}
-
-	var defaultPaymentInfo entities.StripePaymentInfo
+	var defaultPaymentInfo entities.PaymentMethodInfo
 	for _, paymentInfo := range paymentInfos {
-		if paymentInfo.StripePaymentMethodID == defaultPaymentMethodID {
+		if paymentInfo.ProviderPaymentMethodID == user.DefaultPaymentMethodID {
 			defaultPaymentInfo = paymentInfo
 			break
 		}
@@ -316,7 +223,7 @@ func (s *StripePaymentService) GetAvailablePaymentMethods(request dto.GetAvailab
 	}, nil
 }
 
-func (s *StripePaymentService) FindDuedPayments() ([]types.PendingPayment, error) {
+func (s *PaymentService) FindDuedPayments() ([]dto.PendingPaymentDTO, error) {
 	var grinds []*entities.Grind
 
 	// Find all grinds where StartDate + Duration (in days) is the current date (today, UTC)
@@ -326,13 +233,13 @@ func (s *StripePaymentService) FindDuedPayments() ([]types.PendingPayment, error
 	}
 
 	// get the punishment for each grind
-	var pendingPayments []types.PendingPayment
+	var pendingPayments []dto.PendingPaymentDTO
 
 	for _, g := range grinds {
 		for _, p := range g.Participants {
 			// get the stripe payment info for the user
-			var stripePaymentInfos []entities.StripePaymentInfo
-			stripePaymentInfos, err := s.stripePaymentInfoRepo.FindByUserID(p.ID)
+			var paymentMethodInfos []entities.PaymentMethodInfo
+			paymentMethodInfos, err := s.paymentMethodInfoRepo.FindByUserID(p.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -343,8 +250,8 @@ func (s *StripePaymentService) FindDuedPayments() ([]types.PendingPayment, error
 				return nil, err
 			}
 
-			pendingPayments = append(pendingPayments, types.PendingPayment{
-				StripePaymentInfo: stripePaymentInfos[0],
+			pendingPayments = append(pendingPayments, dto.PendingPaymentDTO{
+				PaymentMethodInfo: paymentMethodInfos[0],
 				PaymentAmount:     int64(participateRecord.TotalPenalty),
 			})
 		}

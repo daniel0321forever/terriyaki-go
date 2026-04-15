@@ -12,14 +12,15 @@ import (
 
 type PaymentController struct {
 	userService    *services.UserService
-	paymentService *services.StripePaymentService
+	paymentService services.IPaymentService
 }
 
 func NewPaymentController(
 	us *services.UserService,
-	ps *services.StripePaymentService,
+	ps services.IPaymentService,
 ) *PaymentController {
 	return &PaymentController{
+		userService:    us,
 		paymentService: ps,
 	}
 }
@@ -149,8 +150,8 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 	}
 
 	saveCardDTO := dto.SaveCardDTO{
-		UserID:                userID,
-		StripePaymentMethodID: body.StripePaymentMethodID,
+		UserID:          userID,
+		PaymentMethodID: body.StripePaymentMethodID,
 	}
 
 	// save card
@@ -193,7 +194,7 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 
 	// charge the pending payments
 	for _, pendingPayment := range pendingPayments {
-		_, err := ctrl.paymentService.Charge(pendingPayment.StripePaymentInfo, pendingPayment.PaymentAmount)
+		_, err := ctrl.paymentService.Charge(pendingPayment.PaymentMethodInfo, pendingPayment.PaymentAmount)
 		if err != nil {
 			fmt.Println(err)
 			RespondInternalServerError(c, "Internal Server Error")
@@ -246,7 +247,7 @@ func (ctrl *PaymentController) GetAvailablePaymentMethodsAPI(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"payment_methods":        availablePaymentMethods.PaymentInfos,
-		"default_payment_method": availablePaymentMethods.DefaultPaymentInfo.StripePaymentMethodID,
+		"default_payment_method": availablePaymentMethods.DefaultPaymentInfo.ProviderPaymentMethodID,
 	})
 }
 

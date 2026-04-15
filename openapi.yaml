@@ -722,6 +722,15 @@ paths:
       responses:
         "200":
           description: Card saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment_method:
+                    $ref: "#/components/schemas/PaymentMethod"
 
   /payments/force-charging:
     post:
@@ -733,6 +742,17 @@ paths:
       responses:
         "200":
           description: Penalties charged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  settlements:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentSettlement"
 
   /payments/methods/select-default:
     post:
@@ -756,6 +776,15 @@ paths:
       responses:
         "200":
           description: Default payment method updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  default_payment_method:
+                    type: string
 
   /payments/methods:
     get:
@@ -767,6 +796,17 @@ paths:
       responses:
         "200":
           description: Available payment methods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment_methods:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentMethod"
+                  default_payment_method:
+                    type: string
 
   /ping:
     get:
@@ -1039,6 +1079,16 @@ components:
           format: date-time
 
     PaymentMethod:
+      oneOf:
+        - $ref: "#/components/schemas/CardPaymentMethod"
+        - $ref: "#/components/schemas/OnChainPaymentMethod"
+      discriminator:
+        propertyName: methodType
+        mapping:
+          card: "#/components/schemas/CardPaymentMethod"
+          on_chain: "#/components/schemas/OnChainPaymentMethod"
+
+    CardPaymentMethod:
       type: object
       properties:
         id:
@@ -1050,13 +1100,64 @@ components:
           example: stripe
         methodType:
           type: string
-          enum:
-            - card
-            - wallet
-            - bank_transfer
-            - on_chain
-            - other  # Placeholder for future methods like smart contracts
+          enum: [card]
+          example: card
+        providerCustomerId:
+          type: string
+        providerPaymentMethodId:
+          type: string
         lastFourDigits:
+          type: string
+        brand:
+          type: string
+        expMonth:
+          type: integer
+        expYear:
+          type: integer
+        isDefault:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+              - charge
+              - settle_onchain
+              - refund
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - provider
+        - methodType
+
+    OnChainPaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        provider:
+          type: string
+          example: solana
+        methodType:
+          type: string
+          enum: [on_chain]
+          example: on_chain
+        network:
+          type: string
+          example: devnet
+        walletAddress:
+          type: string
+        contractAddress:
+          type: string
+        settlementProof:
           type: string
         isDefault:
           type: boolean
@@ -1070,10 +1171,69 @@ components:
               - refund
         metadata:
           type: object
-          additionalProperties: true  # Allows storing additional data for future methods
+          additionalProperties: true
         createdAt:
           type: string
           format: date-time
+      required:
+        - id
+        - userId
+        - provider
+        - methodType
+
+    SettlementStatus:
+      type: string
+      enum:
+        - pending
+        - authorized
+        - captured
+        - failed
+        - refunded
+        - settled_onchain
+
+    SettlementReference:
+      type: object
+      properties:
+        providerReference:
+          type: string
+        network:
+          type: string
+        txHash:
+          type: string
+        contractAddress:
+          type: string
+        settlementProof:
+          type: string
+        finalizedAt:
+          type: string
+          format: date-time
+
+    PaymentSettlement:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentMethodId:
+          type: string
+        provider:
+          type: string
+        status:
+          $ref: "#/components/schemas/SettlementStatus"
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          example: usd
+        reference:
+          $ref: "#/components/schemas/SettlementReference"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - status
 
   responses:
     BadRequest:

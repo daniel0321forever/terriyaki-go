@@ -1,7 +1,10 @@
 package api
 
 import (
+	"os"
+
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -23,7 +26,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	taskService := services.NewTaskService(taskRepo)
 	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
 	interviewService := services.NewInterviewService(interviewSessionRepo)
-	paymentService := services.NewStripePaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo)
+	paymentAdapter := services.NewStripePaymentGatewayAdapter(os.Getenv(config.OS_ENV_STRIPE_SECRET_KEY))
+	paymentService := services.NewPaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo, paymentAdapter)
 
 	// Initialize API handlers with services
 	grindCtrl := NewGrindController(grindService, userService, messageService)

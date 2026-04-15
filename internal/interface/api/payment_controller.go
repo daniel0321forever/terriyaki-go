@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
@@ -75,8 +76,14 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 		return
 	}
 
+	idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if idempotencyKey == "" {
+		RespondBadRequest(c, "Missing required Idempotency-Key header")
+		return
+	}
+
 	// create payment intent
-	clientSecret, err := ctrl.paymentService.CreatePaymentIntent(int64(body.Amount))
+	clientSecret, replayed, err := ctrl.paymentService.CreatePaymentIntentWithIdempotency(int64(body.Amount), idempotencyKey)
 	if err != nil {
 		fmt.Println(err)
 		RespondInternalServerError(c, "Internal Server Error")
@@ -85,7 +92,8 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 
 	// return client secret
 	c.JSON(200, gin.H{
-		"clientSecret": clientSecret,
+		"clientSecret":     clientSecret,
+		"idempotent_replay": replayed,
 	})
 }
 
@@ -178,9 +186,15 @@ Response [200]:
 func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 	// authenticate the user
 	token := c.GetHeader("Authorization")
-	_, err := utils.VerifyUserAccess(token)
+	userID, err := utils.VerifyUserAccess(token)
 	if err != nil {
 		RespondUnauthorized(c, "Unauthorized")
+		return
+	}
+
+	idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if idempotencyKey == "" {
+		RespondBadRequest(c, "Missing required Idempotency-Key header")
 		return
 	}
 
@@ -193,8 +207,9 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 	}
 
 	// charge the pending payments
-	for _, pendingPayment := range pendingPayments {
-		_, err := ctrl.paymentService.Charge(pendingPayment.PaymentMethodInfo, pendingPayment.PaymentAmount)
+	for i, pendingPayment := range pendingPayments {
+		operationKey := fmt.Sprintf("%s:%d:%s", idempotencyKey, i, pendingPayment.PaymentMethodInfo.ProviderPaymentMethodID)
+		_, _, err := ctrl.paymentService.ChargeWithIdempotency(pendingPayment.PaymentMethodInfo, pendingPayment.PaymentAmount, "force_charging", operationKey, userID)
 		if err != nil {
 			fmt.Println(err)
 			RespondInternalServerError(c, "Internal Server Error")
@@ -202,8 +217,18 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 		}
 	}
 
+	reconciled, err := ctrl.paymentService.ReconcileSettlements(100)
+	if err != nil {
+		fmt.Println(err)
+		RespondInternalServerError(c, "Internal Server Error")
+		return
+	}
+
 	// return the success message
-	c.JSON(200, gin.H{"message": "Dued penalties charged successfully"})
+	c.JSON(200, gin.H{
+		"message":              "Dued penalties charged successfully",
+		"reconciled_settlements": len(reconciled),
+	})
 }
 
 /*
@@ -279,10 +304,27 @@ func (ctrl *PaymentController) SelectPaymentMethodAPI(c *gin.Context) {
 		return
 	}
 
+	idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if idempotencyKey == "" {
+		RespondBadRequest(c, "Missing required Idempotency-Key header")
+		return
+	}
+
 	// get body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println("Invalid request body, causing the following error:\n" + err.Error())
 		RespondBadRequest(c, "Invalid request body: must provide string 'stripe_payment_method_id'")
+		return
+	}
+
+	claimed, err := ctrl.paymentService.ClaimIdempotency("method_selection", idempotencyKey)
+	if err != nil {
+		fmt.Println(err)
+		RespondInternalServerError(c, "Internal Server Error")
+		return
+	}
+	if !claimed {
+		c.JSON(http.StatusOK, gin.H{"message": "Duplicate method selection ignored by idempotency key"})
 		return
 	}
 
@@ -306,7 +348,7 @@ func (ctrl *PaymentController) SelectPaymentMethodAPI(c *gin.Context) {
 	}
 
 	// force charge the user
-	_, err = ctrl.paymentService.Charge(availablePaymentMethods.DefaultPaymentInfo, 100)
+	_, _, err = ctrl.paymentService.ChargeWithIdempotency(availablePaymentMethods.DefaultPaymentInfo, 100, "method_selection_charge", idempotencyKey+":"+body.StripePaymentMethodID, userID)
 	if err != nil {
 		fmt.Println(err)
 		RespondInternalServerError(c, "Internal Server Error")

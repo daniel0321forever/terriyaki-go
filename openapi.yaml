@@ -659,6 +659,13 @@ paths:
       summary: Create payment intent
       security:
         - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to make payment-intent creation idempotent.
       requestBody:
         required: true
         content:
@@ -681,6 +688,8 @@ paths:
                 properties:
                   clientSecret:
                     type: string
+                  idempotent_replay:
+                    type: boolean
 
   /payments/save-card-intent:
     post:
@@ -739,6 +748,13 @@ paths:
       summary: Force charge overdue penalties
       security:
         - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to dedupe force-charging batches.
       responses:
         "200":
           description: Penalties charged successfully
@@ -749,10 +765,8 @@ paths:
                 properties:
                   message:
                     type: string
-                  settlements:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/PaymentSettlement"
+                  reconciled_settlements:
+                    type: integer
 
   /payments/methods/select-default:
     post:
@@ -761,6 +775,13 @@ paths:
       summary: Select default payment method
       security:
         - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to dedupe default payment-method selection and follow-up charge.
       requestBody:
         required: true
         content:

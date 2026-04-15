@@ -170,6 +170,64 @@ internal/
   }
   ```
 
+### Payment Reliability and Boundary Layers
+
+The payment flow gained a few dedicated layers because payments are the part of the system where retry safety and provider boundaries matter most.
+
+#### Payment data flow
+
+```text
+HTTP request
+  -> payment controller
+  -> payment service
+  -> idempotency claim
+  -> provider adapter
+  -> settlement persistence
+  -> cached replay or fresh response
+```
+
+Example flow for `CreatePaymentIntentWithIdempotency`:
+
+```go
+func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
+  idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+  if idempotencyKey == "" {
+    RespondBadRequest(c, "Missing required Idempotency-Key header")
+    return
+  }
+
+  clientSecret, replayed, err := ctrl.paymentService.CreatePaymentIntentWithIdempotency(amount, idempotencyKey)
+  if err != nil {
+    RespondInternalServerError(c, "Internal Server Error")
+    return
+  }
+
+  c.JSON(200, gin.H{
+    "clientSecret":      clientSecret,
+    "idempotent_replay": replayed,
+  })
+}
+```
+
+#### Why the payment reliability layer exists
+
+- **Idempotency repository**: protects payment operations from duplicate execution when clients retry requests or when the network fails after the provider has already accepted the call.
+- **Settlement repository**: records the lifecycle of each payment operation so the backend can reconcile pending, failed, captured, and refunded states over time.
+- **Provider-neutral payment model**: keeps payment method and settlement data independent from any single provider so Stripe, Solana, or another backend can fit behind the same application contract.
+- **Safe-by-default service API**: public payment write methods now expose only idempotent variants, which removes the accidental footgun of calling an unsafe payment path directly.
+
+#### Why the Rust boundary document exists
+
+- **Keeps chain logic behind the adapter boundary**: the Go application service should not know about chain SDK details or smart-contract execution steps.
+- **Defines the contract once**: the Rust-facing behavior is documented in one place so adapter implementations can stay consistent.
+- **Supports future on-chain providers**: the boundary document makes it easier to add or swap chain execution backends without reshaping the rest of the payment flow.
+
+#### What this buys the system
+
+- **Retry safety**: repeated requests reuse the first successful result instead of creating duplicate side effects.
+- **Reconciliation**: failed or stale settlements can be revisited and repaired later.
+- **Architectural clarity**: the codebase now separates request handling, payment orchestration, persistence, and provider-specific execution more explicitly.
+
 ### Others
 #### Aggregate Roots
 - **Grind** is the main aggregate root
@@ -293,6 +351,7 @@ This project uses four testing levels. Keep each level in its owning layer to ke
   ```bash
   go test -v ./internal/application/services/...
   ```
+- **Payment-specific focus**: idempotency replay, settlement transitions, and reconciliation behavior should be covered here because those rules belong to the service layer.
 
 ### 3. Repository Integration Tests (Infrastructure Adapter)
 

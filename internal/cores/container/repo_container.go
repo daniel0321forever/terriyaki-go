@@ -18,6 +18,8 @@ type ReposContainer struct {
 	MessageRepository           repositories.MessageRepository
 	InterviewSessionRepository  repositories.InterviewSessionRepository
 	PaymentMethodInfoRepository repositories.PaymentMethodInfoRepository
+	PaymentIdempotencyRepository repositories.PaymentIdempotencyRepository
+	PaymentSettlementRepository  repositories.PaymentSettlementRepository
 	ParticipationRepository     repositories.ParticipationRepository
 }
 
@@ -30,6 +32,8 @@ func InitializeReposContainer(db *gorm.DB) error {
 			MessageRepository:           postgres.NewGormMessageRepository(db),
 			InterviewSessionRepository:  postgres.NewGormInterviewSessionRepository(db),
 			PaymentMethodInfoRepository: postgres.NewGormStripePaymentInfoRepository(db),
+			PaymentIdempotencyRepository: postgres.NewGormPaymentIdempotencyRepository(db),
+			PaymentSettlementRepository:  postgres.NewGormPaymentSettlementRepository(db),
 			ParticipationRepository:     postgres.NewGormParticipationRepository(db),
 		}
 		return nil

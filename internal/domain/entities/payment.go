@@ -1,5 +1,7 @@
 package entities
 
+import "time"
+
 // specific to Stripe for now
 type StripePaymentInfo struct {
 	UserID                string `json:"user_id" gorm:"not null"`
@@ -93,6 +95,38 @@ type SettlementReference struct {
 	ContractAddress   string `json:"contract_address" gorm:""`
 	SettlementProof   string `json:"settlement_proof" gorm:""`
 	FinalizedAtUnix   int64  `json:"finalized_at_unix" gorm:""`
+}
+
+type PaymentSettlement struct {
+	ID                 uint             `json:"id"`
+	UserID             string           `json:"user_id"`
+	Operation          string           `json:"operation"`
+	IdempotencyKey     string           `json:"idempotency_key"`
+	Provider           PaymentProvider  `json:"provider"`
+	PaymentMethodID    string           `json:"payment_method_id"`
+	Status             SettlementStatus `json:"status"`
+	Amount             int64            `json:"amount"`
+	Currency           string           `json:"currency"`
+	RetryCount         int              `json:"retry_count"`
+	LastError          string           `json:"last_error"`
+	Reference          SettlementReference `json:"reference"`
+	CreatedAt          time.Time        `json:"created_at"`
+	UpdatedAt          time.Time        `json:"updated_at"`
+}
+
+func NewPaymentSettlement(userID string, operation string, idempotencyKey string, provider PaymentProvider, paymentMethodID string, amount int64) *PaymentSettlement {
+	return &PaymentSettlement{
+		UserID:          userID,
+		Operation:       operation,
+		IdempotencyKey:  idempotencyKey,
+		Provider:        provider,
+		PaymentMethodID: paymentMethodID,
+		Status:          SettlementStatusPending,
+		Amount:          amount,
+		Currency:        "usd",
+		RetryCount:      0,
+		Reference:       SettlementReference{},
+	}
 }
 
 // SolanaPaymentMethodInfo is a placeholder model for wallet-based payment method linkage.

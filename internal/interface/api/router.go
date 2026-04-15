@@ -19,6 +19,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	messageRepo := postgres.NewGormMessageRepository(db)
 	interviewSessionRepo := postgres.NewGormInterviewSessionRepository(db)
 	paymentInfoRepo := postgres.NewGormStripePaymentInfoRepository(db)
+	paymentIdempotencyRepo := postgres.NewGormPaymentIdempotencyRepository(db)
+	paymentSettlementRepo := postgres.NewGormPaymentSettlementRepository(db)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
@@ -27,7 +29,7 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
 	interviewService := services.NewInterviewService(interviewSessionRepo)
 	paymentAdapter := services.NewStripePaymentGatewayAdapter(os.Getenv(config.OS_ENV_STRIPE_SECRET_KEY))
-	paymentService := services.NewPaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo, paymentAdapter)
+	paymentService := services.NewPaymentService(userRepo, grindRepo, participationRepo, paymentInfoRepo, paymentIdempotencyRepo, paymentSettlementRepo, paymentAdapter)
 
 	// Initialize API handlers with services
 	grindCtrl := NewGrindController(grindService, userService, messageService)

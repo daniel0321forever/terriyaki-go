@@ -18,30 +18,38 @@ func NewSolanaPaymentGatewayAdapter() *SolanaPaymentGatewayAdapter {
 	return &SolanaPaymentGatewayAdapter{}
 }
 
-func (*SolanaPaymentGatewayAdapter) CreatePaymentIntent(amount int64) (string, error) {
-	return "", ErrSolanaAdapterNotImplemented
-}
-
-func (*SolanaPaymentGatewayAdapter) CreateSaveCardIntent() (string, error) {
-	return "", ErrSolanaAdapterNotImplemented
-}
-
-func (*SolanaPaymentGatewayAdapter) CreateCustomer(name string, email string) (string, error) {
-	return "", ErrSolanaAdapterNotImplemented
-}
-
-func (*SolanaPaymentGatewayAdapter) DescribePaymentMethod(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
+func (*SolanaPaymentGatewayAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
 	return nil, ErrSolanaAdapterNotImplemented
 }
 
-func (*SolanaPaymentGatewayAdapter) AttachPaymentMethodToCustomer(paymentMethodID string, customerID string) error {
+func (*SolanaPaymentGatewayAdapter) CreatePaymentMethodSetupIntent(req PaymentMethodSetupIntentRequest) (*PaymentMethodSetupIntentResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
+}
+
+func (*SolanaPaymentGatewayAdapter) EnsurePayerProfile(req PayerProfileRequest) (*PayerProfileResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
+}
+
+func (*SolanaPaymentGatewayAdapter) GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
+	return nil, ErrSolanaAdapterNotImplemented
+}
+
+func (*SolanaPaymentGatewayAdapter) LinkPaymentMethodToPayer(req PaymentMethodLinkRequest) error {
 	return ErrSolanaAdapterNotImplemented
 }
 
-func (*SolanaPaymentGatewayAdapter) Charge(customerID string, paymentMethodID string, amount int64) (string, error) {
-	return "", ErrSolanaAdapterNotImplemented
+func (*SolanaPaymentGatewayAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
 }
 
-func (*SolanaPaymentGatewayAdapter) PayBack(destinationAccountID string, amount int64) error {
-	return ErrSolanaAdapterNotImplemented
+func (*SolanaPaymentGatewayAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
+}
+
+func (*SolanaPaymentGatewayAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
+}
+
+func (*SolanaPaymentGatewayAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
+	return nil, ErrSolanaAdapterNotImplemented
 }

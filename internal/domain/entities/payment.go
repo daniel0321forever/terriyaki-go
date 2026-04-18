@@ -1,3 +1,4 @@
+// focus on high-level model for canonical settlement (payment) lifecycles across all payment providers (e.g., Stripe and Solana)
 package entities
 
 import "time"
@@ -98,20 +99,20 @@ type SettlementReference struct {
 }
 
 type PaymentSettlement struct {
-	ID                 uint             `json:"id"`
-	UserID             string           `json:"user_id"`
-	Operation          string           `json:"operation"`
-	IdempotencyKey     string           `json:"idempotency_key"`
-	Provider           PaymentProvider  `json:"provider"`
-	PaymentMethodID    string           `json:"payment_method_id"`
-	Status             SettlementStatus `json:"status"`
-	Amount             int64            `json:"amount"`
-	Currency           string           `json:"currency"`
-	RetryCount         int              `json:"retry_count"`
-	LastError          string           `json:"last_error"`
-	Reference          SettlementReference `json:"reference"`
-	CreatedAt          time.Time        `json:"created_at"`
-	UpdatedAt          time.Time        `json:"updated_at"`
+	ID              uint                `json:"id"`
+	UserID          string              `json:"user_id"`
+	Operation       string              `json:"operation"`
+	IdempotencyKey  string              `json:"idempotency_key"`
+	Provider        PaymentProvider     `json:"provider"`
+	PaymentMethodID string              `json:"payment_method_id"`
+	Status          SettlementStatus    `json:"status"`
+	Amount          int64               `json:"amount"`
+	Currency        string              `json:"currency"`
+	RetryCount      int                 `json:"retry_count"`
+	LastError       string              `json:"last_error"`
+	Reference       SettlementReference `json:"reference"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
 }
 
 func NewPaymentSettlement(userID string, operation string, idempotencyKey string, provider PaymentProvider, paymentMethodID string, amount int64) *PaymentSettlement {

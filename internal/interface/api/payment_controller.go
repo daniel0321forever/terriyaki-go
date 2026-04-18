@@ -92,7 +92,7 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 
 	// return client secret
 	c.JSON(200, gin.H{
-		"clientSecret":     clientSecret,
+		"clientSecret":      clientSecret,
 		"idempotent_replay": replayed,
 	})
 }
@@ -226,7 +226,7 @@ func (ctrl *PaymentController) ForceInvestigateDuedPenaltyAPI(c *gin.Context) {
 
 	// return the success message
 	c.JSON(200, gin.H{
-		"message":              "Dued penalties charged successfully",
+		"message":                "Dued penalties charged successfully",
 		"reconciled_settlements": len(reconciled),
 	})
 }

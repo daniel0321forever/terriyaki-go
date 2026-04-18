@@ -23,7 +23,7 @@ type IPaymentService interface {
 	// Charging lifecycle
 	ChargeWithIdempotency(paymentInfo entities.PaymentMethodInfo, amount int64, operation string, idempotencyKey string, userID string) (string, bool, error)
 
-	PayBack(userStripeAccountID string, amount int64) error
+	PayBack(destinationAccountID string, amount int64) error
 
 	// Settlement/reconciliation
 	FindDuedPayments() ([]dto.PendingPaymentDTO, error)
@@ -35,26 +35,28 @@ type IPaymentService interface {
 }
 
 type PaymentService struct {
-	adapter PaymentGatewayAdapter
+	provider entities.PaymentProvider
+	adapter  PaymentGatewayAdapter
 	// RedisClient is currently kept for future queue/retry usage.
 	RedisClient *redis.Client
 
-	userRepo repositories.UserRepository
-	grindRepo repositories.GrindRepository
+	userRepo          repositories.UserRepository
+	grindRepo         repositories.GrindRepository
 	participationRepo repositories.ParticipationRepository
 
 	paymentMethodInfoRepo repositories.PaymentMethodInfoRepository
-	idempotencyRepo      repositories.PaymentIdempotencyRepository
-	settlementRepo       repositories.PaymentSettlementRepository
+	idempotencyRepo       repositories.PaymentIdempotencyRepository
+	settlementRepo        repositories.PaymentSettlementRepository
 }
 
-func NewPaymentService(
+func newPaymentService(
 	userRepo repositories.UserRepository,
 	grindRepo repositories.GrindRepository,
 	participationRepo repositories.ParticipationRepository,
 	paymentMethodInfoRepo repositories.PaymentMethodInfoRepository,
 	idempotencyRepo repositories.PaymentIdempotencyRepository,
 	settlementRepo repositories.PaymentSettlementRepository,
+	provider entities.PaymentProvider,
 	adapter PaymentGatewayAdapter,
 ) *PaymentService {
 	rdb := redis.NewClient(&redis.Options{
@@ -64,11 +66,12 @@ func NewPaymentService(
 		Protocol: 2,
 	})
 
-	if adapter == nil {
+	if provider == "" || adapter == nil {
 		return nil
 	}
 
 	return &PaymentService{
+		provider:              provider,
 		adapter:               adapter,
 		RedisClient:           rdb,
 		userRepo:              userRepo,
@@ -80,11 +83,8 @@ func NewPaymentService(
 	}
 }
 
-func (s *PaymentService) attachPaymentMethodToCustomer(stripePaymentMethodID string, stripeCustomerID string) error {
-	return s.adapter.AttachPaymentMethodToCustomer(stripePaymentMethodID, stripeCustomerID)
-}
-
 func (s *PaymentService) CreatePaymentIntentWithIdempotency(amount int64, idempotencyKey string) (string, bool, error) {
+
 	claimed, err := s.ClaimIdempotency("payment_intent", idempotencyKey)
 	if err != nil {
 		return "", false, err
@@ -100,10 +100,11 @@ func (s *PaymentService) CreatePaymentIntentWithIdempotency(amount int64, idempo
 		return response, true, nil
 	}
 
-	clientSecret, err := s.adapter.CreatePaymentIntent(amount)
+	intent, err := s.adapter.CreateCollectionIntent(CollectionIntentRequest{Amount: amount, Currency: "usd"})
 	if err != nil {
 		return "", false, err
 	}
+	clientSecret := intent.ClientSecret
 
 	if s.idempotencyRepo != nil {
 		_ = s.idempotencyRepo.SetResponse("payment_intent", idempotencyKey, clientSecret)
@@ -113,33 +114,38 @@ func (s *PaymentService) CreatePaymentIntentWithIdempotency(amount int64, idempo
 }
 
 func (s *PaymentService) CreateSaveCardIntent() (string, error) {
-	return s.adapter.CreateSaveCardIntent()
+	intent, err := s.adapter.CreatePaymentMethodSetupIntent(PaymentMethodSetupIntentRequest{Usage: "off_session"})
+	if err != nil {
+		return "", err
+	}
+	return intent.ClientSecret, nil
 }
 
 func (s *PaymentService) SaveCard(
 	request dto.SaveCardDTO,
 ) (*entities.PaymentMethodInfo, error) {
 
-	// create stripe customer if not exists
-	var stripeCustomerID string
+	// create payer profile if not exists
+	var payerReference string
 
 	user, err := s.userRepo.FindById(request.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	if user.StripeCustomerID != "" {
-		stripeCustomerID = user.StripeCustomerID
-	} else {
-		createdCustomerID, err := s.adapter.CreateCustomer(user.Username, user.Email)
-		if err != nil {
-			return nil, err
-		}
+	profile, err := s.adapter.EnsurePayerProfile(PayerProfileRequest{
+		Name:                   user.Username,
+		Email:                  user.Email,
+		ExistingPayerReference: user.StripeCustomerID,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-		fmt.Print("created customer id " + createdCustomerID + " for user " + user.Username)
-		stripeCustomerID = createdCustomerID
-
-		user.StripeCustomerID = stripeCustomerID
+	payerReference = profile.PayerReference
+	if user.StripeCustomerID == "" {
+		fmt.Print("created payer profile id " + payerReference + " for user " + user.Username)
+		user.StripeCustomerID = payerReference
 		user.DefaultPaymentMethodID = request.PaymentMethodID
 		err = s.userRepo.Update(user)
 		if err != nil {
@@ -147,18 +153,22 @@ func (s *PaymentService) SaveCard(
 		}
 	}
 
-	// attach the payment method to the customer
-	err = s.attachPaymentMethodToCustomer(request.PaymentMethodID, stripeCustomerID)
+	// link the payment method to payer profile
+	err = s.adapter.LinkPaymentMethodToPayer(PaymentMethodLinkRequest{
+		PaymentMethodID: request.PaymentMethodID,
+		PayerReference:  payerReference,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	paymentMethodInfo, err := s.adapter.DescribePaymentMethod(request.PaymentMethodID)
+	paymentMethodInfo, err := s.adapter.GetPaymentMethodDetails(request.PaymentMethodID)
 	if err != nil {
 		return nil, err
 	}
 	paymentMethodInfo.UserID = user.ID
-	paymentMethodInfo.ProviderCustomerID = stripeCustomerID
+	paymentMethodInfo.ProviderCustomerID = payerReference
+	paymentMethodInfo.Provider = s.provider
 
 	paymentMethodInfo, err = s.paymentMethodInfoRepo.Create(paymentMethodInfo)
 
@@ -170,6 +180,7 @@ func (s *PaymentService) SaveCard(
 }
 
 func (s *PaymentService) ChargeWithIdempotency(paymentInfo entities.PaymentMethodInfo, amount int64, operation string, idempotencyKey string, userID string) (string, bool, error) {
+
 	claimed, err := s.ClaimIdempotency(operation, idempotencyKey)
 	if err != nil {
 		return "", false, err
@@ -185,9 +196,11 @@ func (s *PaymentService) ChargeWithIdempotency(paymentInfo entities.PaymentMetho
 		return settlement.Reference.ProviderReference, true, nil
 	}
 
+	provider := s.provider
+
 	var settlement *entities.PaymentSettlement
 	if s.settlementRepo != nil {
-		settlement = entities.NewPaymentSettlement(userID, operation, idempotencyKey, paymentInfo.Provider, paymentInfo.ProviderPaymentMethodID, amount)
+		settlement = entities.NewPaymentSettlement(userID, operation, idempotencyKey, provider, paymentInfo.ProviderPaymentMethodID, amount)
 		settlement.Reference.Network = paymentInfo.Network
 		settlement, err = s.settlementRepo.Create(settlement)
 		if err != nil {
@@ -195,7 +208,12 @@ func (s *PaymentService) ChargeWithIdempotency(paymentInfo entities.PaymentMetho
 		}
 	}
 
-	reference, chargeErr := s.adapter.Charge(paymentInfo.ProviderCustomerID, paymentInfo.ProviderPaymentMethodID, amount)
+	intent, chargeErr := s.adapter.CreateSettlementIntent(SettlementIntentRequest{
+		CustomerID:      paymentInfo.ProviderCustomerID,
+		PaymentMethodID: paymentInfo.ProviderPaymentMethodID,
+		Amount:          amount,
+		Currency:        "usd",
+	})
 	if chargeErr != nil {
 		if settlement != nil {
 			settlement.Status = entities.SettlementStatusFailed
@@ -205,8 +223,13 @@ func (s *PaymentService) ChargeWithIdempotency(paymentInfo entities.PaymentMetho
 		return "", false, chargeErr
 	}
 
+	reference := intent.ProviderReference
+
 	if settlement != nil {
-		settlement.Status = entities.SettlementStatusCaptured
+		settlement.Status = intent.Status
+		if settlement.Status == "" {
+			settlement.Status = entities.SettlementStatusCaptured
+		}
 		settlement.Reference.ProviderReference = reference
 		_, _ = s.settlementRepo.Update(settlement)
 	}
@@ -218,8 +241,9 @@ func (s *PaymentService) ChargeWithIdempotency(paymentInfo entities.PaymentMetho
 	return reference, false, nil
 }
 
-func (s *PaymentService) PayBack(userStripeAccountID string, amount int64) error {
-	return s.adapter.PayBack(userStripeAccountID, amount)
+func (s *PaymentService) PayBack(destinationAccountID string, amount int64) error {
+	_, err := s.adapter.CreateDisbursement(DisbursementRequest{DestinationReference: destinationAccountID, Amount: amount, Currency: "usd"})
+	return err
 }
 
 func (s *PaymentService) GetAvailablePaymentMethods(request dto.GetAvailablePaymentMethodsDTO) (*dto.AvailablePaymentMethodsDTO, error) {

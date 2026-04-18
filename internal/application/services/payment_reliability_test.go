@@ -15,38 +15,57 @@ type fakePaymentAdapter struct {
 	chargeErr      error
 }
 
-func (f *fakePaymentAdapter) CreatePaymentIntent(amount int64) (string, error) {
-	return fmt.Sprintf("pi_%d", amount), nil
+func (f *fakePaymentAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
+	return &CollectionIntentResult{
+		ProviderReference: fmt.Sprintf("pi_%d", req.Amount),
+		ClientSecret:      fmt.Sprintf("pi_%d_secret", req.Amount),
+		Status:            entities.SettlementStatusPending,
+	}, nil
 }
 
-func (f *fakePaymentAdapter) CreateSaveCardIntent() (string, error) {
-	return "seti_test", nil
+func (f *fakePaymentAdapter) CreatePaymentMethodSetupIntent(req PaymentMethodSetupIntentRequest) (*PaymentMethodSetupIntentResult, error) {
+	return &PaymentMethodSetupIntentResult{ProviderReference: "seti_test", ClientSecret: "seti_test_secret"}, nil
 }
 
-func (f *fakePaymentAdapter) CreateCustomer(name string, email string) (string, error) {
-	return "cus_test", nil
+func (f *fakePaymentAdapter) EnsurePayerProfile(req PayerProfileRequest) (*PayerProfileResult, error) {
+	if req.ExistingPayerReference != "" {
+		return &PayerProfileResult{PayerReference: req.ExistingPayerReference}, nil
+	}
+	return &PayerProfileResult{PayerReference: "cus_test"}, nil
 }
 
-func (f *fakePaymentAdapter) DescribePaymentMethod(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
+func (f *fakePaymentAdapter) GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
 	return entities.NewPaymentMethodInfo(entities.PaymentProviderStripe, "", "", paymentMethodID, "visa", "4242", 1, 2030), nil
 }
 
-func (f *fakePaymentAdapter) AttachPaymentMethodToCustomer(paymentMethodID string, customerID string) error {
+func (f *fakePaymentAdapter) LinkPaymentMethodToPayer(req PaymentMethodLinkRequest) error {
 	return nil
 }
 
-func (f *fakePaymentAdapter) Charge(customerID string, paymentMethodID string, amount int64) (string, error) {
+func (f *fakePaymentAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
 	if f.chargeErr != nil {
-		return "", f.chargeErr
+		return nil, f.chargeErr
 	}
-	if f.chargeResponse != "" {
-		return f.chargeResponse, nil
+	reference := f.chargeResponse
+	if reference == "" {
+		reference = "pi_charge_test"
 	}
-	return "pi_charge_test", nil
+	return &SettlementIntentResult{
+		ProviderReference: reference,
+		Status:            entities.SettlementStatusCaptured,
+	}, nil
 }
 
-func (f *fakePaymentAdapter) PayBack(destinationAccountID string, amount int64) error {
-	return nil
+func (f *fakePaymentAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
+	return &SettlementResolutionResult{ProviderReference: req.ProviderReference, Status: req.Resolution}, nil
+}
+
+func (f *fakePaymentAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
+	return &SettlementResolutionResult{ProviderReference: providerReference, Status: entities.SettlementStatusCaptured}, nil
+}
+
+func (f *fakePaymentAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
+	return &DisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
 }
 
 type inMemoryIdempotencyRepo struct {
@@ -172,8 +191,19 @@ func TestPaymentIntentIdempotency(t *testing.T) {
 	adapter := &fakePaymentAdapter{}
 	idempotencyRepo := newInMemoryIdempotencyRepo()
 	settlementRepo := newInMemorySettlementRepo()
-
-	svc := &PaymentService{adapter: adapter, idempotencyRepo: idempotencyRepo, settlementRepo: settlementRepo}
+	svc := newPaymentService(
+		nil,
+		nil,
+		nil,
+		nil,
+		idempotencyRepo,
+		settlementRepo,
+		entities.PaymentProviderStripe,
+		adapter,
+	)
+	if svc == nil {
+		t.Fatalf("expected service, got nil")
+	}
 
 	first, replayed, err := svc.CreatePaymentIntentWithIdempotency(500, "key-1")
 	if err != nil {
@@ -201,8 +231,19 @@ func TestChargeSettlementLifecycleAndReconciliation(t *testing.T) {
 	adapter := &fakePaymentAdapter{chargeErr: errors.New("provider timeout")}
 	idempotencyRepo := newInMemoryIdempotencyRepo()
 	settlementRepo := newInMemorySettlementRepo()
-
-	svc := &PaymentService{adapter: adapter, idempotencyRepo: idempotencyRepo, settlementRepo: settlementRepo}
+	svc := newPaymentService(
+		nil,
+		nil,
+		nil,
+		nil,
+		idempotencyRepo,
+		settlementRepo,
+		entities.PaymentProviderStripe,
+		adapter,
+	)
+	if svc == nil {
+		t.Fatalf("expected service, got nil")
+	}
 	paymentInfo := entities.PaymentMethodInfo{
 		Provider:                entities.PaymentProviderStripe,
 		ProviderCustomerID:      "cus_1",

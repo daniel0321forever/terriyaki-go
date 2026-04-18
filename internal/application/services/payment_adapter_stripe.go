@@ -6,6 +6,7 @@ import (
 	"github.com/stripe/stripe-go/v84/customer"
 	"github.com/stripe/stripe-go/v84/paymentintent"
 	"github.com/stripe/stripe-go/v84/paymentmethod"
+	"github.com/stripe/stripe-go/v84/refund"
 	"github.com/stripe/stripe-go/v84/setupintent"
 	"github.com/stripe/stripe-go/v84/transfer"
 )
@@ -22,12 +23,16 @@ func NewStripePaymentGatewayAdapter(secretKey string) *StripePaymentGatewayAdapt
 	return &StripePaymentGatewayAdapter{secretKey: secretKey}
 }
 
-// `PaymentIntent`: object that tracks the entire lifecycle of a customer’s payment, from initiation to completion
-func (a *StripePaymentGatewayAdapter) CreatePaymentIntent(amount int64) (string, error) {
+func (a *StripePaymentGatewayAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
 	stripe.Key = a.secretKey
+	currency := req.Currency
+	if currency == "" {
+		currency = string(stripe.CurrencyUSD)
+	}
+
 	params := &stripe.PaymentIntentParams{
-		Amount:   stripe.Int64(amount),
-		Currency: stripe.String(string(stripe.CurrencyUSD)),
+		Amount:   stripe.Int64(req.Amount),
+		Currency: stripe.String(currency),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
 			Enabled: stripe.Bool(true),
 		},
@@ -35,38 +40,54 @@ func (a *StripePaymentGatewayAdapter) CreatePaymentIntent(amount int64) (string,
 
 	pi, err := paymentintent.New(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return pi.ClientSecret, nil
+	return &CollectionIntentResult{
+		ProviderReference: pi.ID,
+		ClientSecret:      pi.ClientSecret,
+		Status:            entities.SettlementStatusPending,
+	}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) CreateSaveCardIntent() (string, error) {
+func (a *StripePaymentGatewayAdapter) CreatePaymentMethodSetupIntent(req PaymentMethodSetupIntentRequest) (*PaymentMethodSetupIntentResult, error) {
 	stripe.Key = a.secretKey
-	si, err := setupintent.New(&stripe.SetupIntentParams{Usage: stripe.String("off_session")})
-	if err != nil {
-		return "", err
+	usage := req.Usage
+	if usage == "" {
+		usage = "off_session"
 	}
 
-	return si.ClientSecret, nil
+	si, err := setupintent.New(&stripe.SetupIntentParams{Usage: stripe.String(usage)})
+	if err != nil {
+		return nil, err
+	}
+
+	return &PaymentMethodSetupIntentResult{
+		ProviderReference: si.ID,
+		ClientSecret:      si.ClientSecret,
+	}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) CreateCustomer(name string, email string) (string, error) {
+func (a *StripePaymentGatewayAdapter) EnsurePayerProfile(req PayerProfileRequest) (*PayerProfileResult, error) {
+	if req.ExistingPayerReference != "" {
+		return &PayerProfileResult{PayerReference: req.ExistingPayerReference}, nil
+	}
+
 	stripe.Key = a.secretKey
 	params := &stripe.CustomerParams{
-		Name:  stripe.String(name),
-		Email: stripe.String(email),
+		Name:  stripe.String(req.Name),
+		Email: stripe.String(req.Email),
 	}
 
 	cus, err := customer.New(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return cus.ID, nil
+	return &PayerProfileResult{PayerReference: cus.ID}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) DescribePaymentMethod(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
+func (a *StripePaymentGatewayAdapter) GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
 	stripe.Key = a.secretKey
 	pm, err := paymentmethod.Get(paymentMethodID, nil)
 	if err != nil {
@@ -97,37 +118,93 @@ func (a *StripePaymentGatewayAdapter) DescribePaymentMethod(paymentMethodID stri
 	return info, nil
 }
 
-func (a *StripePaymentGatewayAdapter) AttachPaymentMethodToCustomer(paymentMethodID string, customerID string) error {
+func (a *StripePaymentGatewayAdapter) LinkPaymentMethodToPayer(req PaymentMethodLinkRequest) error {
 	stripe.Key = a.secretKey
-	attachParams := &stripe.PaymentMethodAttachParams{Customer: stripe.String(customerID)}
-	_, err := paymentmethod.Attach(paymentMethodID, attachParams)
+	attachParams := &stripe.PaymentMethodAttachParams{Customer: stripe.String(req.PayerReference)}
+	_, err := paymentmethod.Attach(req.PaymentMethodID, attachParams)
 	return err
 }
 
-func (a *StripePaymentGatewayAdapter) Charge(customerID string, paymentMethodID string, amount int64) (string, error) {
+func (a *StripePaymentGatewayAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
 	stripe.Key = a.secretKey
+	currency := req.Currency
+	if currency == "" {
+		currency = string(stripe.CurrencyUSD)
+	}
+
 	pi, err := paymentintent.New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(amount),
-		Currency:      stripe.String(string(stripe.CurrencyUSD)),
-		Customer:      stripe.String(customerID),
-		PaymentMethod: stripe.String(paymentMethodID),
+		Amount:        stripe.Int64(req.Amount),
+		Currency:      stripe.String(currency),
+		Customer:      stripe.String(req.CustomerID),
+		PaymentMethod: stripe.String(req.PaymentMethodID),
 		OffSession:    stripe.Bool(true),
 		Confirm:       stripe.Bool(true),
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return pi.ClientSecret, nil
+	status := entities.SettlementStatusPending
+	if pi.Status == stripe.PaymentIntentStatusSucceeded {
+		status = entities.SettlementStatusCaptured
+	}
+
+	return &SettlementIntentResult{
+		ProviderReference: pi.ID,
+		ClientSecret:      pi.ClientSecret,
+		Status:            status,
+	}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) PayBack(destinationAccountID string, amount int64) error {
+func (a *StripePaymentGatewayAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
 	stripe.Key = a.secretKey
-	_, err := transfer.New(&stripe.TransferParams{
-		Amount:      stripe.Int64(amount),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Destination: stripe.String(destinationAccountID),
-	})
 
-	return err
+	if req.Resolution == entities.SettlementStatusRefunded {
+		_, err := refund.New(&stripe.RefundParams{PaymentIntent: stripe.String(req.ProviderReference)})
+		if err != nil {
+			return nil, err
+		}
+		return &SettlementResolutionResult{ProviderReference: req.ProviderReference, Status: entities.SettlementStatusRefunded}, nil
+	}
+
+	return a.QuerySettlementStatus(req.ProviderReference)
+}
+
+func (a *StripePaymentGatewayAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
+	stripe.Key = a.secretKey
+	pi, err := paymentintent.Get(providerReference, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	status := entities.SettlementStatusPending
+	switch pi.Status {
+	case stripe.PaymentIntentStatusSucceeded:
+		status = entities.SettlementStatusCaptured
+	case stripe.PaymentIntentStatusRequiresCapture:
+		status = entities.SettlementStatusAuthorized
+	case stripe.PaymentIntentStatusCanceled:
+		status = entities.SettlementStatusFailed
+	}
+
+	return &SettlementResolutionResult{ProviderReference: providerReference, Status: status}, nil
+}
+
+func (a *StripePaymentGatewayAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
+	stripe.Key = a.secretKey
+	currency := req.Currency
+	if currency == "" {
+		currency = string(stripe.CurrencyUSD)
+	}
+
+	_, err := transfer.New(&stripe.TransferParams{
+		Amount:      stripe.Int64(req.Amount),
+		Currency:    stripe.String(currency),
+		Destination: stripe.String(req.DestinationReference),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &DisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
 }

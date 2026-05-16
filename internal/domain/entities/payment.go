@@ -42,31 +42,17 @@ type PaymentMethodInfo struct {
 	WalletAddress           string          `json:"wallet_address" gorm:""`
 }
 
-func NewPaymentMethodInfo(provider PaymentProvider, userID string, providerCustomerID string, providerPaymentMethodID string, brand string, last4 string, expMonth int, expYear int) *PaymentMethodInfo {
+func NewPaymentMethodInfo(provider PaymentProvider, methodType string, userID string, providerCustomerID string, providerPaymentMethodID string, brand string, last4 string, expMonth int, expYear int) *PaymentMethodInfo {
 	return &PaymentMethodInfo{
 		UserID:                  userID,
 		Provider:                provider,
 		ProviderCustomerID:      providerCustomerID,
 		ProviderPaymentMethodID: providerPaymentMethodID,
-		MethodType:              "card",
+		MethodType:              methodType,
 		Brand:                   brand,
 		Last4:                   last4,
 		ExpMonth:                expMonth,
 		ExpYear:                 expYear,
-	}
-}
-
-func NewPaymentMethodInfoFromStripe(info StripePaymentInfo) PaymentMethodInfo {
-	return PaymentMethodInfo{
-		UserID:                  info.UserID,
-		Provider:                PaymentProviderStripe,
-		ProviderCustomerID:      info.StripeCustomerID,
-		ProviderPaymentMethodID: info.StripePaymentMethodID,
-		MethodType:              "card",
-		Brand:                   info.Brand,
-		Last4:                   info.Last4,
-		ExpMonth:                info.ExpMonth,
-		ExpYear:                 info.ExpYear,
 	}
 }
 

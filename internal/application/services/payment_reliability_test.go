@@ -35,7 +35,7 @@ func (f *fakePaymentAdapter) EnsurePayerProfile(req PayerProfileRequest) (*Payer
 }
 
 func (f *fakePaymentAdapter) GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
-	return entities.NewPaymentMethodInfo(entities.PaymentProviderStripe, "", "", paymentMethodID, "visa", "4242", 1, 2030), nil
+	return entities.NewPaymentMethodInfo(entities.PaymentProviderStripe, "card", "", "", paymentMethodID, "visa", "4242", 1, 2030), nil
 }
 
 func (f *fakePaymentAdapter) LinkPaymentMethodToPayer(req PaymentMethodLinkRequest) error {

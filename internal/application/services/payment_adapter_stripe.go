@@ -11,8 +11,9 @@ import (
 	"github.com/stripe/stripe-go/v84/transfer"
 )
 
-// Compile-time check that Stripe adapter satisfies PaymentGatewayAdapter.
+// Compile-time check that Stripe adapter satisfies PaymentGatewayAdapter and CardMethodAdapter.
 var _ PaymentGatewayAdapter = (*StripePaymentGatewayAdapter)(nil)
+var _ CardMethodAdapter = (*StripePaymentGatewayAdapter)(nil)
 
 // "inherit" from PaymentGatewayAdapter
 type StripePaymentGatewayAdapter struct {
@@ -107,6 +108,7 @@ func (a *StripePaymentGatewayAdapter) GetPaymentMethodDetails(paymentMethodID st
 
 	info := entities.NewPaymentMethodInfo(
 		entities.PaymentProviderStripe,
+		"card",
 		"",
 		"",
 		paymentMethodID,

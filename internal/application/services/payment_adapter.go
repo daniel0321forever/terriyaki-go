@@ -73,18 +73,45 @@ type DisbursementResult struct {
 	Status            entities.SettlementStatus
 }
 
-// PaymentGatewayAdapter abstracts provider-specific payment operations.
-type PaymentGatewayAdapter interface {
-	// Provider-neutral payment method lifecycle.
+type WalletMethodRequest struct {
+	UserID        string
+	WalletAddress string
+	Network       string
+	ProgramID     string
+}
+
+// SettlementAdapter abstracts the shared settlement lifecycle across providers.
+// Covers the full money-movement lifecycle: collection intents, settlement intents, resolution, and disbursements.
+type SettlementAdapter interface {
+	// Initialize payment (prep phase)
 	CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error)
+	// Charge using saved method
+	CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error)
+	// Confirm outcome
+	ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error)
+	// Check progress
+	QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error)
+	// Send funds
+	CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error)
+}
+
+// CardMethodAdapter abstracts card onboarding capabilities used by Stripe.
+// These methods are called only during the AddPaymentMethod flow, separate from settlement.
+type CardMethodAdapter interface {
 	CreatePaymentMethodSetupIntent(req PaymentMethodSetupIntentRequest) (*PaymentMethodSetupIntentResult, error)
 	EnsurePayerProfile(req PayerProfileRequest) (*PayerProfileResult, error)
 	GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error)
 	LinkPaymentMethodToPayer(req PaymentMethodLinkRequest) error
+}
 
-	// Provider-neutral settlement lifecycle.
-	CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error)
-	ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error)
-	QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error)
-	CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error)
+// WalletMethodAdapter abstracts wallet onboarding capabilities used by Solana.
+type WalletMethodAdapter interface {
+	ValidateWalletOwnership(req WalletMethodRequest) error
+	NormalizeWalletMethod(req WalletMethodRequest) (*entities.PaymentMethodInfo, error)
+}
+
+// PaymentGatewayAdapter is the provider contract for settlement operations.
+// All providers must implement the shared settlement lifecycle.
+type PaymentGatewayAdapter interface {
+	SettlementAdapter
 }

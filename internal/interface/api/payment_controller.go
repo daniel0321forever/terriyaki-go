@@ -122,30 +122,21 @@ RESPONSE:
 	    "clientSecret": "seti_1N2FaBEXAMPLE_csecret_sample"
 	}
 */
-func (ctrl *PaymentController) SaveCardIntentAPI(c *gin.Context) {
-	// Create save card (setup) intent with Stripe
-	clientSecret, err := ctrl.paymentService.CreateSaveCardIntent()
-	if err != nil {
-		fmt.Println("Could not create save card intent:", err)
-		RespondInternalServerError(c, "Internal Server Error")
-		return
-	}
-
-	// Return the client secret for the setup intent
-	c.JSON(200, gin.H{"clientSecret": clientSecret})
-}
-
-func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
+func (ctrl *PaymentController) AddPaymentMethodAPI(c *gin.Context) {
 	// Define struct for expected body format (strict binding)
 	type Request struct {
-		StripePaymentMethodID string `json:"payment_method_id" binding:"required"`
+		MethodType          string `json:"method_type" binding:"required"`
+		CardPaymentMethodID string `json:"card_payment_method_id"`
+		WalletAddress       string `json:"wallet_address"`
+		Network             string `json:"network"`
+		ProgramID           string `json:"program_id"`
 	}
 	var body Request
 
 	// get body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		fmt.Println("Invalid request body, causing the following error:\n" + err.Error())
-		RespondBadRequest(c, "Invalid request body: must provide string 'payment_method_id'")
+		RespondBadRequest(c, "Invalid request body: must provide 'method_type' and provider-specific fields")
 		return
 	}
 
@@ -157,13 +148,17 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 		return
 	}
 
-	saveCardDTO := dto.SaveCardDTO{
-		UserID:          userID,
-		PaymentMethodID: body.StripePaymentMethodID,
+	addMethodDTO := dto.AddPaymentMethodDTO{
+		UserID:              userID,
+		MethodType:          body.MethodType,
+		CardPaymentMethodID: body.CardPaymentMethodID,
+		WalletAddress:       body.WalletAddress,
+		Network:             body.Network,
+		ProgramID:           body.ProgramID,
 	}
 
-	// save card
-	_, err = ctrl.paymentService.SaveCard(saveCardDTO)
+	// add payment method
+	paymentMethod, err := ctrl.paymentService.AddPaymentMethod(addMethodDTO)
 	if err != nil {
 		fmt.Println(err)
 		RespondInternalServerError(c, "Internal Server Error")
@@ -171,7 +166,7 @@ func (ctrl *PaymentController) SaveCardAPI(c *gin.Context) {
 	}
 
 	// return the success message
-	c.JSON(200, gin.H{"message": "Card saved successfully"})
+	c.JSON(200, gin.H{"message": "Payment method added successfully", "payment_method": paymentMethod})
 }
 
 /*

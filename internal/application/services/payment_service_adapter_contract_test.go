@@ -34,7 +34,7 @@ func (a *providerContractAdapter) EnsurePayerProfile(req PayerProfileRequest) (*
 }
 
 func (a *providerContractAdapter) GetPaymentMethodDetails(paymentMethodID string) (*entities.PaymentMethodInfo, error) {
-	info := entities.NewPaymentMethodInfo(a.provider, "", a.prefix+"_payer", paymentMethodID, "visa", "4242", 1, 2030)
+	info := entities.NewPaymentMethodInfo(a.provider, "card", "", a.prefix+"_payer", paymentMethodID, "visa", "4242", 1, 2030)
 	if a.provider == entities.PaymentProviderSolana {
 		info.MethodType = "solana_wallet"
 		info.Network = "solana"

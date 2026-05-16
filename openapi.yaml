@@ -691,29 +691,12 @@ paths:
                   idempotent_replay:
                     type: boolean
 
-  /payments/save-card-intent:
+  /payments/methods:
     post:
       tags:
         - Payments
-      summary: Create save card intent
-      security:
-        - BearerAuth: []
-      responses:
-        "200":
-          description: Save card intent created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  clientSecret:
-                    type: string
-
-  /payments/save-card:
-    post:
-      tags:
-        - Payments
-      summary: Save card
+      summary: Add payment method (card or wallet)
+      description: Add a new payment method to the user's profile. Supports both Stripe cards and Solana wallets with method-type discrimination.
       security:
         - BearerAuth: []
       requestBody:
@@ -723,14 +706,38 @@ paths:
             schema:
               type: object
               properties:
-                payment_method_id:
+                method_type:
                   type: string
-                  description: Stripe payment method id
+                  enum: ["card", "solana_wallet"]
+                  description: Type of payment method to add
+                card_payment_method_id:
+                  type: string
+                  description: Stripe payment method ID (required for method_type=card)
+                wallet_address:
+                  type: string
+                  description: Solana wallet address (required for method_type=solana_wallet)
+                network:
+                  type: string
+                  enum: ["mainnet", "devnet", "testnet"]
+                  description: Solana network (required for method_type=solana_wallet)
+                program_id:
+                  type: string
+                  description: Optional Solana program ID (for method_type=solana_wallet)
               required:
-                - payment_method_id
+                - method_type
+            examples:
+              card:
+                value:
+                  method_type: "card"
+                  card_payment_method_id: "pm_1234567890"
+              solana_wallet:
+                value:
+                  method_type: "solana_wallet"
+                  wallet_address: "8RCRCxFzKk5Sy1EXMfUE6mJsb3YiVG1jCQ8h1T9oCauA"
+                  network: "mainnet"
       responses:
         "200":
-          description: Card saved successfully
+          description: Payment method added successfully
           content:
             application/json:
               schema:
@@ -740,6 +747,32 @@ paths:
                     type: string
                   payment_method:
                     $ref: "#/components/schemas/PaymentMethod"
+        "400":
+          description: Invalid request or missing required fields
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal server error
+    get:
+      tags:
+        - Payments
+      summary: Get available payment methods
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Available payment methods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment_methods:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentMethod"
+                  default_payment_method:
+                    type: string
 
   /payments/force-charging:
     post:
@@ -804,28 +837,6 @@ paths:
                 properties:
                   message:
                     type: string
-                  default_payment_method:
-                    type: string
-
-  /payments/methods:
-    get:
-      tags:
-        - Payments
-      summary: Get available payment methods
-      security:
-        - BearerAuth: []
-      responses:
-        "200":
-          description: Available payment methods
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  payment_methods:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/PaymentMethod"
                   default_payment_method:
                     type: string
 

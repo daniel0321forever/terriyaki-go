@@ -2,9 +2,14 @@ package dto
 
 import "github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 
-type SaveCardDTO struct {
-	UserID          string `json:"user_id" binding:"required"`
-	PaymentMethodID string `json:"payment_method_id" binding:"required"`
+// AddPaymentMethodDTO is the unified request for adding a payment method (card or wallet).
+type AddPaymentMethodDTO struct {
+	UserID              string `json:"user_id" binding:"required"`
+	MethodType          string `json:"method_type" binding:"required"`      // "card" or "solana_wallet"
+	CardPaymentMethodID string `json:"card_payment_method_id"`              // Required for card method type
+	WalletAddress       string `json:"wallet_address"`                      // Required for solana_wallet method type
+	Network             string `json:"network"`                             // Required for solana_wallet (e.g., "mainnet", "devnet")
+	ProgramID           string `json:"program_id"`                          // Optional for solana_wallet
 }
 
 type GetAvailablePaymentMethodsDTO struct {

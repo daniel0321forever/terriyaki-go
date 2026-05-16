@@ -64,6 +64,7 @@ func (*GormStripePaymentInfoRepository) FindByID(id string) (*entities.PaymentMe
 	}
 	paymentInfo := entities.NewPaymentMethodInfo(
 		entities.PaymentProvider(paymentMethodInfoSchema.Provider),
+		paymentMethodInfoSchema.MethodType,
 		paymentMethodInfoSchema.UserID,
 		paymentMethodInfoSchema.ProviderCustomerID,
 		paymentMethodInfoSchema.ProviderPaymentMethodID,
@@ -72,8 +73,6 @@ func (*GormStripePaymentInfoRepository) FindByID(id string) (*entities.PaymentMe
 		paymentMethodInfoSchema.ExpMonth,
 		paymentMethodInfoSchema.ExpYear,
 	)
-	paymentInfo.MethodType = paymentMethodInfoSchema.MethodType
-	paymentInfo.Network = paymentMethodInfoSchema.Network
 	paymentInfo.WalletAddress = paymentMethodInfoSchema.WalletAddress
 	return paymentInfo, nil
 }
@@ -89,6 +88,7 @@ func (*GormStripePaymentInfoRepository) FindByUserID(userID string) ([]entities.
 	for _, info := range paymentMethodInfoSchemas {
 		paymentInfo := entities.NewPaymentMethodInfo(
 			entities.PaymentProvider(info.Provider),
+			info.MethodType,
 			info.UserID,
 			info.ProviderCustomerID,
 			info.ProviderPaymentMethodID,
@@ -97,7 +97,6 @@ func (*GormStripePaymentInfoRepository) FindByUserID(userID string) ([]entities.
 			info.ExpMonth,
 			info.ExpYear,
 		)
-		paymentInfo.MethodType = info.MethodType
 		paymentInfo.Network = info.Network
 		paymentInfo.WalletAddress = info.WalletAddress
 		paymentInfos = append(paymentInfos, *paymentInfo)

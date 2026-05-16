@@ -46,6 +46,7 @@ func TestNewPaymentMethodInfo(t *testing.T) {
 
 	info := NewPaymentMethodInfo(
 		PaymentProviderStripe,
+		"card",
 		"user-1",
 		"cus_123",
 		"pm_123",

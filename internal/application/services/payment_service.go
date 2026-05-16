@@ -17,8 +17,7 @@ type IPaymentService interface {
 	CreatePaymentIntentWithIdempotency(amount int64, idempotencyKey string) (string, bool, error)
 
 	// Payment method lifecycle
-	CreateSaveCardIntent() (string, error)
-	SaveCard(request dto.SaveCardDTO) (*entities.PaymentMethodInfo, error)
+	AddPaymentMethod(request dto.AddPaymentMethodDTO) (*entities.PaymentMethodInfo, error)
 
 	// Charging lifecycle
 	ChargeWithIdempotency(paymentInfo entities.PaymentMethodInfo, amount int64, operation string, idempotencyKey string, userID string) (string, bool, error)
@@ -37,6 +36,8 @@ type IPaymentService interface {
 type PaymentService struct {
 	provider entities.PaymentProvider
 	adapter  PaymentGatewayAdapter
+	cardAdapter   CardMethodAdapter
+	walletAdapter WalletMethodAdapter
 	// RedisClient is currently kept for future queue/retry usage.
 	RedisClient *redis.Client
 
@@ -70,7 +71,7 @@ func newPaymentService(
 		return nil
 	}
 
-	return &PaymentService{
+	svc := &PaymentService{
 		provider:              provider,
 		adapter:               adapter,
 		RedisClient:           rdb,
@@ -81,6 +82,15 @@ func newPaymentService(
 		idempotencyRepo:       idempotencyRepo,
 		settlementRepo:        settlementRepo,
 	}
+
+	if cardAdapter, ok := any(adapter).(CardMethodAdapter); ok {
+		svc.cardAdapter = cardAdapter
+	}
+	if walletAdapter, ok := any(adapter).(WalletMethodAdapter); ok {
+		svc.walletAdapter = walletAdapter
+	}
+
+	return svc
 }
 
 func (s *PaymentService) CreatePaymentIntentWithIdempotency(amount int64, idempotencyKey string) (string, bool, error) {
@@ -113,17 +123,28 @@ func (s *PaymentService) CreatePaymentIntentWithIdempotency(amount int64, idempo
 	return clientSecret, false, nil
 }
 
-func (s *PaymentService) CreateSaveCardIntent() (string, error) {
-	intent, err := s.adapter.CreatePaymentMethodSetupIntent(PaymentMethodSetupIntentRequest{Usage: "off_session"})
-	if err != nil {
-		return "", err
+func (s *PaymentService) AddPaymentMethod(
+	request dto.AddPaymentMethodDTO,
+) (*entities.PaymentMethodInfo, error) {
+	if request.MethodType == "card" {
+		return s.addCardMethod(request)
 	}
-	return intent.ClientSecret, nil
+	if request.MethodType == "solana_wallet" {
+		return s.addSolanaWalletMethod(request)
+	}
+	return nil, fmt.Errorf("unsupported payment method type: %s", request.MethodType)
 }
 
-func (s *PaymentService) SaveCard(
-	request dto.SaveCardDTO,
-) (*entities.PaymentMethodInfo, error) {
+func (s *PaymentService) addCardMethod(request dto.AddPaymentMethodDTO) (*entities.PaymentMethodInfo, error) {
+	if s.provider != entities.PaymentProviderStripe {
+		return nil, fmt.Errorf("card payment method requires Stripe provider")
+	}
+	if s.cardAdapter == nil {
+		return nil, fmt.Errorf("card onboarding is not available for provider %s", s.provider)
+	}
+	if request.CardPaymentMethodID == "" {
+		return nil, fmt.Errorf("card payment method ID is required")
+	}
 
 	// create payer profile if not exists
 	var payerReference string
@@ -133,7 +154,7 @@ func (s *PaymentService) SaveCard(
 		return nil, err
 	}
 
-	profile, err := s.adapter.EnsurePayerProfile(PayerProfileRequest{
+	profile, err := s.cardAdapter.EnsurePayerProfile(PayerProfileRequest{
 		Name:                   user.Username,
 		Email:                  user.Email,
 		ExistingPayerReference: user.StripeCustomerID,
@@ -146,7 +167,7 @@ func (s *PaymentService) SaveCard(
 	if user.StripeCustomerID == "" {
 		fmt.Print("created payer profile id " + payerReference + " for user " + user.Username)
 		user.StripeCustomerID = payerReference
-		user.DefaultPaymentMethodID = request.PaymentMethodID
+		user.DefaultPaymentMethodID = request.CardPaymentMethodID
 		err = s.userRepo.Update(user)
 		if err != nil {
 			return nil, err
@@ -154,15 +175,15 @@ func (s *PaymentService) SaveCard(
 	}
 
 	// link the payment method to payer profile
-	err = s.adapter.LinkPaymentMethodToPayer(PaymentMethodLinkRequest{
-		PaymentMethodID: request.PaymentMethodID,
+	err = s.cardAdapter.LinkPaymentMethodToPayer(PaymentMethodLinkRequest{
+		PaymentMethodID: request.CardPaymentMethodID,
 		PayerReference:  payerReference,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	paymentMethodInfo, err := s.adapter.GetPaymentMethodDetails(request.PaymentMethodID)
+	paymentMethodInfo, err := s.cardAdapter.GetPaymentMethodDetails(request.CardPaymentMethodID)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +192,53 @@ func (s *PaymentService) SaveCard(
 	paymentMethodInfo.Provider = s.provider
 
 	paymentMethodInfo, err = s.paymentMethodInfoRepo.Create(paymentMethodInfo)
+	if err != nil {
+		return nil, err
+	}
+	return paymentMethodInfo, nil
+}
 
+func (s *PaymentService) addSolanaWalletMethod(request dto.AddPaymentMethodDTO) (*entities.PaymentMethodInfo, error) {
+	if s.provider != entities.PaymentProviderSolana {
+		return nil, fmt.Errorf("solana wallet requires Solana provider")
+	}
+	if request.WalletAddress == "" {
+		return nil, fmt.Errorf("solana wallet address is required")
+	}
+	if request.Network == "" {
+		return nil, fmt.Errorf("solana network is required")
+	}
+
+	user, err := s.userRepo.FindById(request.UserID)
 	if err != nil {
 		return nil, err
 	}
 
+	walletRequest := WalletMethodRequest{
+		UserID:        user.ID,
+		WalletAddress: request.WalletAddress,
+		Network:       request.Network,
+		ProgramID:     request.ProgramID,
+	}
+
+	if s.walletAdapter == nil {
+		return nil, fmt.Errorf("wallet onboarding is not available for provider %s", s.provider)
+	}
+	if err := s.walletAdapter.ValidateWalletOwnership(walletRequest); err != nil {
+		return nil, err
+	}
+
+	paymentMethodInfo, err := s.walletAdapter.NormalizeWalletMethod(walletRequest)
+	if err != nil {
+		return nil, err
+	}
+	paymentMethodInfo.UserID = user.ID
+	paymentMethodInfo.Provider = s.provider
+
+	paymentMethodInfo, err = s.paymentMethodInfoRepo.Create(paymentMethodInfo)
+	if err != nil {
+		return nil, err
+	}
 	return paymentMethodInfo, nil
 }
 

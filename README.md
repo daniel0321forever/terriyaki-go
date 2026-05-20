@@ -186,7 +186,7 @@ HTTP request
   -> cached replay or fresh response
 ```
 
-Example flow for `CreatePaymentIntentWithIdempotency`:
+Example flow for `CreateStripeCollectionIntent`:
 
 ```go
 func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
@@ -196,7 +196,7 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
     return
   }
 
-  clientSecret, replayed, err := ctrl.paymentService.CreatePaymentIntentWithIdempotency(amount, idempotencyKey)
+  clientSecret, replayed, err := ctrl.stripeService.CreateStripeCollectionIntent(dto.StripeCreateIntentDTO{AmountCents: amount}, idempotencyKey)
   if err != nil {
     RespondInternalServerError(c, "Internal Server Error")
     return

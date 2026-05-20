@@ -21,7 +21,11 @@ func TestPaymentServiceGetAvailablePaymentMethods(t *testing.T) {
 	}, nil)
 
 	svc := &PaymentService{userRepo: userRepo, paymentMethodInfoRepo: infoRepo}
-	res, err := svc.GetAvailablePaymentMethods(dto.GetAvailablePaymentMethodsDTO{UserID: "u1"})
+	getReq, err := dto.NewGetAvailablePaymentMethodsDTO("u1")
+	if err != nil {
+		t.Fatalf("constructor error: %v", err)
+	}
+	res, err := svc.GetAvailablePaymentMethods(getReq)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -56,15 +60,15 @@ func TestPaymentServiceFindDuedPayments(t *testing.T) {
 		paymentMethodInfoRepo: infoRepo,
 	}
 
-	pending, err := svc.FindDuedPayments()
+	result, err := svc.FindDuedPayments()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(pending) != 1 {
-		t.Fatalf("expected one pending payment, got %d", len(pending))
+	if len(result.PendingPayments) != 1 {
+		t.Fatalf("expected one pending payment, got %d", len(result.PendingPayments))
 	}
-	if pending[0].PaymentAmount != 42 {
-		t.Fatalf("expected payment amount 42, got %d", pending[0].PaymentAmount)
+	if result.PendingPayments[0].PaymentAmount != 42 {
+		t.Fatalf("expected payment amount 42, got %d", result.PendingPayments[0].PaymentAmount)
 	}
 	grindRepo.AssertExpectations(t)
 	partRepo.AssertExpectations(t)

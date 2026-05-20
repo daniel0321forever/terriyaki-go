@@ -652,11 +652,11 @@ paths:
         "200":
           description: Interview ended, evaluation queued
 
-  /payments/payment-intent:
+  /payments/stripe/payment-intent:
     post:
       tags:
         - Payments
-      summary: Create payment intent
+      summary: Create payment intent (Stripe)
       security:
         - BearerAuth: []
       parameters:
@@ -673,11 +673,11 @@ paths:
             schema:
               type: object
               properties:
-                amount:
+                amount_cents:
                   type: integer
                   example: 500
               required:
-                - amount
+                - amount_cents
       responses:
         "200":
           description: Payment intent created
@@ -695,8 +695,8 @@ paths:
     post:
       tags:
         - Payments
-      summary: Add payment method (card or wallet)
-      description: Add a new payment method to the user's profile. Supports both Stripe cards and Solana wallets with method-type discrimination.
+      summary: Add payment method (shared onboarding)
+      description: Add a new payment method using either Stripe card details or Solana wallet details.
       security:
         - BearerAuth: []
       requestBody:
@@ -753,15 +753,17 @@ paths:
           description: Unauthorized
         "500":
           description: Internal server error
+
+  /payments/stripe/methods:
     get:
       tags:
         - Payments
-      summary: Get available payment methods
+      summary: Get available payment methods (Stripe)
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: Available payment methods
+          description: Available payment methods (Stripe cards)
           content:
             application/json:
               schema:
@@ -774,11 +776,11 @@ paths:
                   default_payment_method:
                     type: string
 
-  /payments/force-charging:
+  /payments/stripe/force-charging:
     post:
       tags:
         - Payments
-      summary: Force charge overdue penalties
+      summary: Force charge overdue penalties (Stripe)
       security:
         - BearerAuth: []
       parameters:
@@ -801,11 +803,11 @@ paths:
                   reconciled_settlements:
                     type: integer
 
-  /payments/methods/select-default:
+  /payments/stripe/methods/select-default:
     post:
       tags:
         - Payments
-      summary: Select default payment method
+      summary: Select default payment method (Stripe)
       security:
         - BearerAuth: []
       parameters:

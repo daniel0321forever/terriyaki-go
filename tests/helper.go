@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	solanaGo "github.com/gagliardetto/solana-go"
 )
 
 var (
@@ -92,6 +93,23 @@ func Setup() {
 			sslMode = "disable"
 		}
 		_ = os.Setenv("TEST_POSTGRES_SSLMODE", sslMode)
+	}
+
+	if os.Getenv("SOLANA_RPC_ENDPOINT") == "" {
+		_ = os.Setenv("SOLANA_RPC_ENDPOINT", "http://127.0.0.1:8899")
+	}
+	if os.Getenv("SOLANA_PROGRAM_ID") == "" {
+		programKey, err := solanaGo.NewRandomPrivateKey()
+		if err == nil {
+			_ = os.Setenv("SOLANA_PROGRAM_ID", programKey.PublicKey().String())
+		}
+	}
+	if os.Getenv("SOLANA_ORACLE_PUBKEY") == "" || os.Getenv("SOLANA_ORACLE_PRIVATE_KEY") == "" {
+		oracleKey, err := solanaGo.NewRandomPrivateKey()
+		if err == nil {
+			_ = os.Setenv("SOLANA_ORACLE_PUBKEY", oracleKey.PublicKey().String())
+			_ = os.Setenv("SOLANA_ORACLE_PRIVATE_KEY", oracleKey.String())
+		}
 	}
 
 	// connect to test database

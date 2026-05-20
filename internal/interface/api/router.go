@@ -37,8 +37,14 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 
 	// Initialize payment service bound to a single provider (Stripe).
 	// The provider is selected at startup via the factory.
-	paymentService, err := paymentFactory.BuildForProvider(
+	stripePaymentService, err := paymentFactory.BuildForProvider(
 		entities.PaymentProviderStripe,
+	)
+	if err != nil {
+		panic(err)
+	}
+	solanaPaymentService, err := paymentFactory.BuildForProvider(
+		entities.PaymentProviderSolana,
 	)
 	if err != nil {
 		panic(err)
@@ -51,7 +57,7 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	taskCtrl := NewTaskController(taskService, grindService)
 	messageCtrl := NewMessageController(userService, messageService, grindService)
 	interviewCtrl := NewInterviewController(interviewService, userService, taskService)
-	paymentCtrl := NewPaymentController(userService, paymentService)
+	paymentCtrl := NewPaymentController(userService, stripePaymentService, solanaPaymentService)
 	profileCtrl := NewProfileController(userService)
 
 	// define routes
@@ -74,11 +80,15 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 		v1.POST("interviews/start", interviewCtrl.StartInterviewAPI)
 		v1.POST("interviews/:id/response", interviewCtrl.SaveAgentResponseAPI)
 		v1.POST("interviews/:id/end", interviewCtrl.EndInterviewAPI)
-		v1.POST("payments/payment-intent", paymentCtrl.PaymentIntentAPI)
+		// Stripe payment endpoints
+		v1.POST("payments/stripe/payment-intent", paymentCtrl.PaymentIntentAPI)
 		v1.POST("payments/methods", paymentCtrl.AddPaymentMethodAPI)
-		v1.POST("payments/force-charging", paymentCtrl.ForceInvestigateDuedPenaltyAPI)
-		v1.GET("payments/methods", paymentCtrl.GetAvailablePaymentMethodsAPI)
-		v1.POST("payments/methods/select-default", paymentCtrl.SelectPaymentMethodAPI)
+		v1.POST("payments/stripe/force-charging", paymentCtrl.ForceInvestigateDuedPenaltyAPI)
+		v1.GET("payments/stripe/methods", paymentCtrl.GetAvailablePaymentMethodsAPI)
+		v1.POST("payments/stripe/methods/select-default", paymentCtrl.SelectPaymentMethodAPI)
+		// Solana payment endpoints
+		v1.POST("payments/solana/collection-intent", paymentCtrl.CreateSolanaCollectionIntentAPI)
+		v1.POST("payments/solana/submit-signed-transaction", paymentCtrl.SubmitSolanaSignedTransactionAPI)
 		v1.GET("users/exists", userCtrl.CheckUserExistsAPI)
 		v1.PATCH("users/update-profile", profileCtrl.UpdateProfileAPI)
 		v1.GET("messages", messageCtrl.GetMessageAPI)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
@@ -12,13 +13,17 @@ type providerContractAdapter struct {
 	prefix   string
 }
 
-func (a *providerContractAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
-	ref := fmt.Sprintf("%s_intent_%d", a.prefix, req.Amount)
-	return &CollectionIntentResult{
-		ProviderReference: ref,
-		ClientSecret:      ref + "_secret",
-		Status:            entities.SettlementStatusPending,
-	}, nil
+func (a *providerContractAdapter) CreateCollectionIntent(req CollectionIntentRequestPayload) (CollectionIntentResultPayload, error) {
+	switch typed := req.(type) {
+	case StripeCollectionIntentRequest:
+		ref := fmt.Sprintf("%s_intent_%d", a.prefix, typed.Amount)
+		return &StripeCollectionIntentResult{ProviderReference: ref, ClientSecret: ref + "_secret", Status: entities.SettlementStatusPending}, nil
+	case SolanaCollectionIntentRequest:
+		ref := fmt.Sprintf("%s_intent_%d", a.prefix, typed.Amount)
+		return &SolanaCollectionIntentResult{ProviderReference: ref, ClientSecret: ref + "_secret", Status: entities.SettlementStatusPending}, nil
+	default:
+		return nil, fmt.Errorf("unexpected collection intent request type %T", req)
+	}
 }
 
 func (a *providerContractAdapter) CreatePaymentMethodSetupIntent(req PaymentMethodSetupIntentRequest) (*PaymentMethodSetupIntentResult, error) {
@@ -47,23 +52,51 @@ func (a *providerContractAdapter) LinkPaymentMethodToPayer(req PaymentMethodLink
 	return nil
 }
 
-func (a *providerContractAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
-	return &SettlementIntentResult{
-		ProviderReference: fmt.Sprintf("%s_settlement_%s", a.prefix, req.PaymentMethodID),
-		Status:            entities.SettlementStatusCaptured,
-	}, nil
+func (a *providerContractAdapter) CreateSettlementIntent(req SettlementIntentRequestPayload) (SettlementIntentResultPayload, error) {
+	switch typed := req.(type) {
+	case StripeSettlementIntentRequest:
+		return &StripeSettlementIntentResult{ProviderReference: fmt.Sprintf("%s_settlement_%s", a.prefix, typed.PaymentMethodID), Status: entities.SettlementStatusCaptured}, nil
+	case SolanaSettlementIntentRequest:
+		return &SolanaSettlementIntentResult{ProviderReference: fmt.Sprintf("%s_settlement_%s", a.prefix, typed.PaymentMethodID), Status: entities.SettlementStatusCaptured}, nil
+	default:
+		return nil, fmt.Errorf("unexpected settlement intent request type %T", req)
+	}
 }
 
-func (a *providerContractAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
-	return &SettlementResolutionResult{ProviderReference: req.ProviderReference, Status: req.Resolution}, nil
+func (a *providerContractAdapter) ResolveSettlement(req SettlementResolutionRequestPayload) (SettlementResolutionResultPayload, error) {
+	switch typed := req.(type) {
+	case StripeSettlementResolutionRequest:
+		return &StripeSettlementResolutionResult{ProviderReference: typed.ProviderReference, Status: typed.Resolution}, nil
+	case SolanaSettlementResolutionRequest:
+		return &SolanaSettlementResolutionResult{ProviderReference: typed.ProviderReference, Status: entities.SettlementStatus(typed.Resolution), Signature: ""}, nil
+	default:
+		return nil, fmt.Errorf("unexpected settlement resolution request type %T", req)
+	}
 }
 
-func (a *providerContractAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
-	return &SettlementResolutionResult{ProviderReference: providerReference, Status: entities.SettlementStatusCaptured}, nil
+func (a *providerContractAdapter) QuerySettlementStatus(req QuerySettlementStatusRequestPayload) (SettlementResolutionResultPayload, error) {
+	switch typed := req.(type) {
+	case StripeQuerySettlementStatusRequest:
+		return &StripeSettlementResolutionResult{ProviderReference: typed.ProviderReference, Status: entities.SettlementStatusCaptured}, nil
+	case SolanaQuerySettlementStatusRequest:
+		return &SolanaSettlementResolutionResult{ProviderReference: typed.ProviderReference, Status: entities.SettlementStatusCaptured}, nil
+	default:
+		return nil, fmt.Errorf("unexpected query settlement status request type %T", req)
+	}
 }
 
-func (a *providerContractAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
-	return &DisbursementResult{ProviderReference: a.prefix + "_disbursement", Status: entities.SettlementStatusCaptured}, nil
+func (a *providerContractAdapter) CreateDisbursement(req DisbursementRequestPayload) (DisbursementResultPayload, error) {
+	if a.provider == entities.PaymentProviderSolana {
+		if _, ok := req.(SolanaDisbursementRequest); !ok {
+			return nil, fmt.Errorf("expected SolanaDisbursementRequest, got %T", req)
+		}
+		return &SolanaDisbursementResult{ProviderReference: a.prefix + "_disbursement", Status: entities.SettlementStatusCaptured}, nil
+	}
+
+	if _, ok := req.(StripeDisbursementRequest); !ok {
+		return nil, fmt.Errorf("expected StripeDisbursementRequest, got %T", req)
+	}
+	return &StripeDisbursementResult{ProviderReference: a.prefix + "_disbursement", Status: entities.SettlementStatusCaptured}, nil
 }
 
 func runSwappableAdapterSuite(t *testing.T, provider entities.PaymentProvider, methodType string, adapter PaymentGatewayAdapter) {
@@ -85,23 +118,34 @@ func runSwappableAdapterSuite(t *testing.T, provider entities.PaymentProvider, m
 		t.Fatalf("expected payment service, got nil")
 	}
 
-	intentA, replayed, err := svc.CreatePaymentIntentWithIdempotency(123, "intent-key")
-	if err != nil {
-		t.Fatalf("expected payment intent success, got error: %v", err)
-	}
-	if replayed {
-		t.Fatalf("expected first payment intent call not replayed")
-	}
+	if provider == entities.PaymentProviderStripe {
+		intentDTO, ctorErr := dto.NewStripeCreateIntentDTO("test-user", 123, "usd")
+		if ctorErr != nil {
+			t.Fatalf("constructor error: %v", ctorErr)
+		}
+		intentA, err := svc.CreateStripeCollectionIntent(intentDTO, "intent-key")
+		if err != nil {
+			t.Fatalf("expected payment intent success, got error: %v", err)
+		}
+		if intentA.IdempotentReplay {
+			t.Fatalf("expected first payment intent call not replayed")
+		}
 
-	intentB, replayed, err := svc.CreatePaymentIntentWithIdempotency(123, "intent-key")
-	if err != nil {
-		t.Fatalf("expected payment intent replay success, got error: %v", err)
-	}
-	if !replayed {
-		t.Fatalf("expected second payment intent call replayed")
-	}
-	if intentA != intentB {
-		t.Fatalf("expected replayed payment intent response %q, got %q", intentA, intentB)
+		intentB, err := svc.CreateStripeCollectionIntent(intentDTO, "intent-key")
+		if err != nil {
+			t.Fatalf("expected payment intent replay success, got error: %v", err)
+		}
+		if !intentB.IdempotentReplay {
+			t.Fatalf("expected second payment intent call replayed")
+		}
+		if intentA.ClientSecret != intentB.ClientSecret {
+			t.Fatalf("expected replayed payment intent response %q, got %q", intentA.ClientSecret, intentB.ClientSecret)
+		}
+	} else {
+		_, err := svc.CreateStripeCollectionIntent(dto.StripeCreateIntentDTO{AmountCents: 123}, "intent-key")
+		if err == nil {
+			t.Fatalf("expected provider-specific collection intent requirement error for non-stripe providers")
+		}
 	}
 
 	paymentInfo := entities.PaymentMethodInfo{
@@ -111,23 +155,31 @@ func runSwappableAdapterSuite(t *testing.T, provider entities.PaymentProvider, m
 		ProviderPaymentMethodID: "method_1",
 	}
 
-	refA, replayed, err := svc.ChargeWithIdempotency(paymentInfo, 777, "force_charging", "charge-key", "user_1")
+	chargeReqA, ctorErr := dto.NewChargeWithIdempotencyDTO(paymentInfo, 777, "force_charging", "user_1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	refA, err := svc.ChargeWithIdempotency(chargeReqA, "charge-key")
 	if err != nil {
 		t.Fatalf("expected settlement success, got error: %v", err)
 	}
-	if replayed {
+	if refA.IdempotentReplay {
 		t.Fatalf("expected first settlement call not replayed")
 	}
 
-	refB, replayed, err := svc.ChargeWithIdempotency(paymentInfo, 777, "force_charging", "charge-key", "user_1")
+	chargeReqB, ctorErr := dto.NewChargeWithIdempotencyDTO(paymentInfo, 777, "force_charging", "user_1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	refB, err := svc.ChargeWithIdempotency(chargeReqB, "charge-key")
 	if err != nil {
 		t.Fatalf("expected settlement replay success, got error: %v", err)
 	}
-	if !replayed {
+	if !refB.IdempotentReplay {
 		t.Fatalf("expected second settlement call replayed")
 	}
-	if refA != refB {
-		t.Fatalf("expected replayed settlement reference %q, got %q", refA, refB)
+	if refA.ProviderReference != refB.ProviderReference {
+		t.Fatalf("expected replayed settlement reference %q, got %q", refA.ProviderReference, refB.ProviderReference)
 	}
 
 	stored, err := settlementRepo.FindByOperationAndKey("force_charging", "charge-key")
@@ -169,12 +221,16 @@ func TestAdapterSelectionByMethodType(t *testing.T) {
 		ProviderPaymentMethodID: "wallet_1",
 		Network:                 "solana",
 	}
-	ref, _, err := svc.ChargeWithIdempotency(method, 250, "force_charging", "solana-method-key", "user_1")
+	chargeReq1, ctorErr := dto.NewChargeWithIdempotencyDTO(method, 250, "force_charging", "user_1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	ref, err := svc.ChargeWithIdempotency(chargeReq1, "solana-method-key")
 	if err != nil {
 		t.Fatalf("expected settlement success, got error: %v", err)
 	}
-	if ref[:6] != "stripe" {
-		t.Fatalf("expected stripe adapter reference, got %q", ref)
+	if ref.ProviderReference[:6] != "stripe" {
+		t.Fatalf("expected stripe adapter reference, got %q", ref.ProviderReference)
 	}
 
 	cardMethod := entities.PaymentMethodInfo{
@@ -182,12 +238,16 @@ func TestAdapterSelectionByMethodType(t *testing.T) {
 		ProviderCustomerID:      "cust_card",
 		ProviderPaymentMethodID: "pm_1",
 	}
-	ref, _, err = svc.ChargeWithIdempotency(cardMethod, 250, "force_charging", "card-method-key", "user_1")
+	chargeReq2, ctorErr := dto.NewChargeWithIdempotencyDTO(cardMethod, 250, "force_charging", "user_1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	ref, err = svc.ChargeWithIdempotency(chargeReq2, "card-method-key")
 	if err != nil {
 		t.Fatalf("expected stripe settlement success, got error: %v", err)
 	}
-	if ref[:6] != "stripe" {
-		t.Fatalf("expected stripe adapter reference, got %q", ref)
+	if ref.ProviderReference[:6] != "stripe" {
+		t.Fatalf("expected stripe adapter reference, got %q", ref.ProviderReference)
 	}
 }
 

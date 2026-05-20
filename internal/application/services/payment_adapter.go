@@ -1,17 +1,62 @@
 package services
 
-import "github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+import (
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/gagliardetto/solana-go"
+)
 
-type CollectionIntentRequest struct {
+// Abstract-factory request/response payload contracts.
+// Providers implement the same lifecycle methods but with provider-specific payloads.
+// NOTE: The dummy method is used for compile-time type safety check
+type CollectionIntentRequestPayload interface{ isCollectionIntentRequestPayload() }
+type CollectionIntentResultPayload interface{ isCollectionIntentResultPayload() }
+type SettlementIntentRequestPayload interface{ isSettlementIntentRequestPayload() }
+type SettlementIntentResultPayload interface{ isSettlementIntentResultPayload() }
+type SettlementResolutionRequestPayload interface{ isSettlementResolutionRequestPayload() }
+type SettlementResolutionResultPayload interface{ isSettlementResolutionResultPayload() }
+type QuerySettlementStatusRequestPayload interface{ isQuerySettlementStatusRequestPayload() }
+type DisbursementRequestPayload interface{ isDisbursementRequestPayload() }
+type DisbursementResultPayload interface{ isDisbursementResultPayload() }
+
+type StripeCollectionIntentRequest struct {
 	Amount   int64
 	Currency string
 }
 
-type CollectionIntentResult struct {
+func (StripeCollectionIntentRequest) isCollectionIntentRequestPayload() {}
+
+type StripeCollectionIntentResult struct {
 	ProviderReference string
 	ClientSecret      string
 	Status            entities.SettlementStatus
 }
+
+func (*StripeCollectionIntentResult) isCollectionIntentResultPayload() {}
+
+type SolanaCollectionIntentRequest struct {
+	Amount       int64
+	Currency     string
+	PayerPubkey  string
+	PledgeID     string
+	DeadlineUnix int64
+	Network      string
+	ProgramID    string
+	OraclePubkey string
+}
+
+func (SolanaCollectionIntentRequest) isCollectionIntentRequestPayload() {}
+
+type SolanaCollectionIntentResult struct {
+	ProviderReference string
+	ClientSecret      string
+	Status            entities.SettlementStatus
+	UnsignedTxJSON    string
+	PledgePDA         string
+	RecentBlockhash   solana.Hash
+	ExpiresAtUnix     int64
+}
+
+func (*SolanaCollectionIntentResult) isCollectionIntentResultPayload() {}
 
 type PaymentMethodSetupIntentRequest struct {
 	Usage string
@@ -37,41 +82,124 @@ type PaymentMethodLinkRequest struct {
 	PayerReference  string
 }
 
-type SettlementIntentRequest struct {
+type StripeSettlementIntentRequest struct {
 	CustomerID      string
 	PaymentMethodID string
 	Amount          int64
 	Currency        string
 }
 
-type SettlementIntentResult struct {
+func (StripeSettlementIntentRequest) isSettlementIntentRequestPayload() {}
+
+type StripeSettlementIntentResult struct {
 	ProviderReference string
 	ClientSecret      string
 	Status            entities.SettlementStatus
 }
 
-type SettlementResolutionRequest struct {
+func (*StripeSettlementIntentResult) isSettlementIntentResultPayload() {}
+
+type SolanaSettlementIntentRequest struct {
+	CustomerID      string
+	PaymentMethodID string
+	Amount          int64
+	Currency        string
+}
+
+func (SolanaSettlementIntentRequest) isSettlementIntentRequestPayload() {}
+
+type SolanaSettlementIntentResult struct {
+	ProviderReference string
+	ClientSecret      string
+	Status            entities.SettlementStatus
+}
+
+func (*SolanaSettlementIntentResult) isSettlementIntentResultPayload() {}
+
+type StripeSettlementResolutionRequest struct {
 	ProviderReference string
 	Resolution        entities.SettlementStatus
 	Amount            int64
 	Currency          string
 }
 
-type SettlementResolutionResult struct {
+func (StripeSettlementResolutionRequest) isSettlementResolutionRequestPayload() {}
+
+type StripeSettlementResolutionResult struct {
 	ProviderReference string
 	Status            entities.SettlementStatus
 }
 
-type DisbursementRequest struct {
+func (*StripeSettlementResolutionResult) isSettlementResolutionResultPayload() {}
+
+type SolanaSettlementResolutionRequest struct {
+	ProviderReference string
+	Resolution        string // "success" or "failure"
+	Amount            int64
+	Currency          string
+	// Oracle signing parameters (for resolve_success/resolve_failure paths)
+	PledgePDA          string // base58 pledge account address
+	UserPubkey         string // base58 user wallet pubkey (for success) or penalty pool (for failure)
+	PenaltyPoolKey     string // base58 penalty pool pubkey (only for failure)
+	TxHashProof        string // off-chain transaction ID for audit trail
+	Network            string // solana network (devnet/mainnet)
+	Operation          string // operation name for audit/logging
+}
+
+func (SolanaSettlementResolutionRequest) isSettlementResolutionRequestPayload() {}
+
+type SolanaSettlementResolutionResult struct {
+	ProviderReference string
+	Status            entities.SettlementStatus
+	// Oracle resolution result
+	Signature         string // transaction signature (if signed)
+	SettlementProof   string // JSON proof (if signed)
+	SignedTxBase64    string // base64 signed transaction (if applicable)
+}
+
+func (*SolanaSettlementResolutionResult) isSettlementResolutionResultPayload() {}
+
+type StripeQuerySettlementStatusRequest struct {
+	ProviderReference string
+}
+
+func (StripeQuerySettlementStatusRequest) isQuerySettlementStatusRequestPayload() {}
+
+type SolanaQuerySettlementStatusRequest struct {
+	ProviderReference string
+}
+
+func (SolanaQuerySettlementStatusRequest) isQuerySettlementStatusRequestPayload() {}
+
+type StripeDisbursementRequest struct {
 	DestinationReference string
 	Amount               int64
 	Currency             string
 }
 
-type DisbursementResult struct {
+func (StripeDisbursementRequest) isDisbursementRequestPayload() {}
+
+type StripeDisbursementResult struct {
 	ProviderReference string
 	Status            entities.SettlementStatus
 }
+
+func (*StripeDisbursementResult) isDisbursementResultPayload() {}
+
+type SolanaDisbursementRequest struct {
+	DestinationReference string
+	Amount               int64
+	Currency             string
+}
+
+func (SolanaDisbursementRequest) isDisbursementRequestPayload() {}
+
+type SolanaDisbursementResult struct {
+	ProviderReference string
+	Status            entities.SettlementStatus
+}
+
+func (*SolanaDisbursementResult) isDisbursementResultPayload() {}
 
 type WalletMethodRequest struct {
 	UserID        string
@@ -84,15 +212,15 @@ type WalletMethodRequest struct {
 // Covers the full money-movement lifecycle: collection intents, settlement intents, resolution, and disbursements.
 type SettlementAdapter interface {
 	// Initialize payment (prep phase)
-	CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error)
+	CreateCollectionIntent(req CollectionIntentRequestPayload) (CollectionIntentResultPayload, error)
 	// Charge using saved method
-	CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error)
+	CreateSettlementIntent(req SettlementIntentRequestPayload) (SettlementIntentResultPayload, error)
 	// Confirm outcome
-	ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error)
+	ResolveSettlement(req SettlementResolutionRequestPayload) (SettlementResolutionResultPayload, error)
 	// Check progress
-	QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error)
+	QuerySettlementStatus(req QuerySettlementStatusRequestPayload) (SettlementResolutionResultPayload, error)
 	// Send funds
-	CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error)
+	CreateDisbursement(req DisbursementRequestPayload) (DisbursementResultPayload, error)
 }
 
 // CardMethodAdapter abstracts card onboarding capabilities used by Stripe.

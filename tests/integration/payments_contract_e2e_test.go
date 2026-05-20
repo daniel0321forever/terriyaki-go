@@ -10,7 +10,7 @@ import (
 
 func TestSelectDefaultPaymentMethodUnauthorized(t *testing.T) {
 	requestBody := map[string]string{"payment_method_id": "pm_test"}
-	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v1/payments/methods/select-default", requestBody, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v1/payments/stripe/methods/select-default", requestBody, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -20,7 +20,7 @@ func TestSelectDefaultPaymentMethodUnauthorized(t *testing.T) {
 }
 
 func TestGetPaymentMethodsUnauthorized(t *testing.T) {
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/payments/methods", nil, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/payments/stripe/methods", nil, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())

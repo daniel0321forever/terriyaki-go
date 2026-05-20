@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
@@ -15,8 +16,13 @@ type fakePaymentAdapter struct {
 	chargeErr      error
 }
 
-func (f *fakePaymentAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
-	return &CollectionIntentResult{
+func (f *fakePaymentAdapter) CreateCollectionIntent(req_ CollectionIntentRequestPayload) (CollectionIntentResultPayload, error) {
+	req, ok := req_.(StripeCollectionIntentRequest)
+	if !ok {
+		return nil, fmt.Errorf("fakePaymentAdapter expects StripeCollectionIntentRequest, got %T", req_)
+	}
+
+	return &StripeCollectionIntentResult{
 		ProviderReference: fmt.Sprintf("pi_%d", req.Amount),
 		ClientSecret:      fmt.Sprintf("pi_%d_secret", req.Amount),
 		Status:            entities.SettlementStatusPending,
@@ -42,7 +48,12 @@ func (f *fakePaymentAdapter) LinkPaymentMethodToPayer(req PaymentMethodLinkReque
 	return nil
 }
 
-func (f *fakePaymentAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
+func (f *fakePaymentAdapter) CreateSettlementIntent(req SettlementIntentRequestPayload) (SettlementIntentResultPayload, error) {
+	_, ok := req.(StripeSettlementIntentRequest)
+	if !ok {
+		return nil, fmt.Errorf("fakePaymentAdapter expects StripeSettlementIntentRequest, got %T", req)
+	}
+
 	if f.chargeErr != nil {
 		return nil, f.chargeErr
 	}
@@ -50,22 +61,34 @@ func (f *fakePaymentAdapter) CreateSettlementIntent(req SettlementIntentRequest)
 	if reference == "" {
 		reference = "pi_charge_test"
 	}
-	return &SettlementIntentResult{
+	return &StripeSettlementIntentResult{
 		ProviderReference: reference,
 		Status:            entities.SettlementStatusCaptured,
 	}, nil
 }
 
-func (f *fakePaymentAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
-	return &SettlementResolutionResult{ProviderReference: req.ProviderReference, Status: req.Resolution}, nil
+func (f *fakePaymentAdapter) ResolveSettlement(req_ SettlementResolutionRequestPayload) (SettlementResolutionResultPayload, error) {
+	req, ok := req_.(StripeSettlementResolutionRequest)
+	if !ok {
+		return nil, fmt.Errorf("fakePaymentAdapter expects StripeSettlementResolutionRequest, got %T", req_)
+	}
+	return &StripeSettlementResolutionResult{ProviderReference: req.ProviderReference, Status: req.Resolution}, nil
 }
 
-func (f *fakePaymentAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
-	return &SettlementResolutionResult{ProviderReference: providerReference, Status: entities.SettlementStatusCaptured}, nil
+func (f *fakePaymentAdapter) QuerySettlementStatus(req_ QuerySettlementStatusRequestPayload) (SettlementResolutionResultPayload, error) {
+	req, ok := req_.(StripeQuerySettlementStatusRequest)
+	if !ok {
+		return nil, fmt.Errorf("fakePaymentAdapter expects StripeQuerySettlementStatusRequest, got %T", req_)
+	}
+	return &StripeSettlementResolutionResult{ProviderReference: req.ProviderReference, Status: entities.SettlementStatusCaptured}, nil
 }
 
-func (f *fakePaymentAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
-	return &DisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
+func (f *fakePaymentAdapter) CreateDisbursement(req_ DisbursementRequestPayload) (DisbursementResultPayload, error) {
+	req, ok := req_.(StripeDisbursementRequest)
+	if !ok {
+		return nil, fmt.Errorf("fakePaymentAdapter expects StripeDisbursementRequest, got %T", req_)
+	}
+	return &StripeDisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
 }
 
 type inMemoryIdempotencyRepo struct {
@@ -205,23 +228,27 @@ func TestPaymentIntentIdempotency(t *testing.T) {
 		t.Fatalf("expected service, got nil")
 	}
 
-	first, replayed, err := svc.CreatePaymentIntentWithIdempotency(500, "key-1")
+	intentDTO, ctorErr := dto.NewStripeCreateIntentDTO("test-user", 500, "usd")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	first, err := svc.CreateStripeCollectionIntent(intentDTO, "key-1")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if replayed {
+	if first.IdempotentReplay {
 		t.Fatalf("first call should not be replay")
 	}
 
-	second, replayed, err := svc.CreatePaymentIntentWithIdempotency(500, "key-1")
+	second, err := svc.CreateStripeCollectionIntent(intentDTO, "key-1")
 	if err != nil {
 		t.Fatalf("expected no error on replay, got %v", err)
 	}
-	if !replayed {
+	if !second.IdempotentReplay {
 		t.Fatalf("second call should be replay")
 	}
-	if first != second {
-		t.Fatalf("expected same response on replay, got %q and %q", first, second)
+	if first.ClientSecret != second.ClientSecret {
+		t.Fatalf("expected same response on replay, got %q and %q", first.ClientSecret, second.ClientSecret)
 	}
 }
 
@@ -250,12 +277,13 @@ func TestChargeSettlementLifecycleAndReconciliation(t *testing.T) {
 		ProviderPaymentMethodID: "pm_1",
 	}
 
-	_, replayed, err := svc.ChargeWithIdempotency(paymentInfo, 100, "force_charging", "charge-key-1", "u1")
+	chargeReq1, ctorErr := dto.NewChargeWithIdempotencyDTO(paymentInfo, 100, "force_charging", "u1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	_, err := svc.ChargeWithIdempotency(chargeReq1, "charge-key-1")
 	if err == nil {
 		t.Fatalf("expected charge error")
-	}
-	if replayed {
-		t.Fatalf("first failed charge should not be replay")
 	}
 
 	settlement, findErr := settlementRepo.FindByOperationAndKey("force_charging", "charge-key-1")
@@ -266,11 +294,15 @@ func TestChargeSettlementLifecycleAndReconciliation(t *testing.T) {
 		t.Fatalf("expected failed status, got %q", settlement.Status)
 	}
 
-	reconciled, err := svc.ReconcileSettlements(10)
+	reconReq, ctorErr := dto.NewReconcileSettlementsDTO(10)
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	reconciled, err := svc.ReconcileSettlements(reconReq)
 	if err != nil {
 		t.Fatalf("expected no reconcile error, got %v", err)
 	}
-	if len(reconciled) == 0 {
+	if len(reconciled.UpdatedSettlements) == 0 {
 		t.Fatalf("expected reconciled settlements")
 	}
 
@@ -281,15 +313,19 @@ func TestChargeSettlementLifecycleAndReconciliation(t *testing.T) {
 
 	adapter.chargeErr = nil
 	adapter.chargeResponse = "pi_capture_123"
-	ref, replayed, err := svc.ChargeWithIdempotency(paymentInfo, 100, "force_charging", "charge-key-2", "u1")
+	chargeReq2, ctorErr := dto.NewChargeWithIdempotencyDTO(paymentInfo, 100, "force_charging", "u1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	ref, err := svc.ChargeWithIdempotency(chargeReq2, "charge-key-2")
 	if err != nil {
 		t.Fatalf("expected successful charge, got %v", err)
 	}
-	if replayed {
+	if ref.IdempotentReplay {
 		t.Fatalf("new idempotency key should not replay")
 	}
-	if ref != "pi_capture_123" {
-		t.Fatalf("expected provider reference pi_capture_123, got %q", ref)
+	if ref.ProviderReference != "pi_capture_123" {
+		t.Fatalf("expected provider reference pi_capture_123, got %q", ref.ProviderReference)
 	}
 
 	captured, _ := settlementRepo.FindByOperationAndKey("force_charging", "charge-key-2")
@@ -297,14 +333,18 @@ func TestChargeSettlementLifecycleAndReconciliation(t *testing.T) {
 		t.Fatalf("expected captured status, got %q", captured.Status)
 	}
 
-	refReplay, replayed, err := svc.ChargeWithIdempotency(paymentInfo, 100, "force_charging", "charge-key-2", "u1")
+	chargeReq3, ctorErr := dto.NewChargeWithIdempotencyDTO(paymentInfo, 100, "force_charging", "u1")
+	if ctorErr != nil {
+		t.Fatalf("constructor error: %v", ctorErr)
+	}
+	refReplay, err := svc.ChargeWithIdempotency(chargeReq3, "charge-key-2")
 	if err != nil {
 		t.Fatalf("expected replay success, got %v", err)
 	}
-	if !replayed {
+	if !refReplay.IdempotentReplay {
 		t.Fatalf("expected replay on duplicate key")
 	}
-	if refReplay != ref {
-		t.Fatalf("expected replay reference %q, got %q", ref, refReplay)
+	if refReplay.ProviderReference != ref.ProviderReference {
+		t.Fatalf("expected replay reference %q, got %q", ref.ProviderReference, refReplay.ProviderReference)
 	}
 }

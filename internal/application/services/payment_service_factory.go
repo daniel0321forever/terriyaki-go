@@ -8,6 +8,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
+	solanaGo "github.com/gagliardetto/solana-go"
 )
 
 // PaymentProviderDefinition centralizes all configuration for a payment provider:
@@ -23,16 +24,53 @@ var providerRegistry = map[entities.PaymentProvider]PaymentProviderDefinition{
 	entities.PaymentProviderStripe: {
 		MethodTypes: []string{"card"},
 		BuildAdapter: func() PaymentGatewayAdapter {
-			secret := os.Getenv(config.OS_ENV_STRIPE_SECRET_KEY)
+			secret := os.Getenv(config.STRIPE_SECRET_KEY)
 			return NewStripePaymentGatewayAdapter(secret)
 		},
 	},
 	entities.PaymentProviderSolana: {
 		MethodTypes: []string{"solana_wallet"},
 		BuildAdapter: func() PaymentGatewayAdapter {
-			return NewSolanaPaymentGatewayAdapter()
+			adapter, err := buildValidatedSolanaPaymentGatewayAdapter()
+			if err != nil {
+				return nil
+			}
+			return adapter
 		},
 	},
+}
+
+func buildValidatedSolanaPaymentGatewayAdapter() (*SolanaPaymentGatewayAdapter, error) {
+	rpcEndpoint := os.Getenv(config.SOLANA_RPC_ENDPOINT)
+	programIDStr := os.Getenv(config.SOLANA_PROGRAM_ID)
+	oraclePubkeyStr := os.Getenv(config.SOLANA_ORACLE_PUBKEY)
+	oraclePrivateKeyStr := os.Getenv(config.SOLANA_ORACLE_PRIVATE_KEY)
+
+	if rpcEndpoint == "" {
+		return nil, fmt.Errorf("solana RPC endpoint is required")
+	}
+
+	programID, err := solanaGo.PublicKeyFromBase58(programIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid solana program id: %w", err)
+	}
+	oraclePubkey, err := solanaGo.PublicKeyFromBase58(oraclePubkeyStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid solana oracle pubkey: %w", err)
+	}
+	oraclePrivateKey, err := solanaGo.PrivateKeyFromBase58(oraclePrivateKeyStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid solana oracle private key: %w", err)
+	}
+
+	var programIDArr [32]byte
+	copy(programIDArr[:], programID.Bytes())
+	var oraclePubkeyArr [32]byte
+	copy(oraclePubkeyArr[:], oraclePubkey.Bytes())
+	var oraclePrivateKeyArr [64]byte
+	copy(oraclePrivateKeyArr[:], []byte(oraclePrivateKey))
+
+	return NewSolanaPaymentGatewayAdapter(rpcEndpoint, programIDArr, oraclePubkeyArr, oraclePrivateKeyArr), nil
 }
 
 // PaymentServiceFactory encapsulates PaymentService wiring so route registration

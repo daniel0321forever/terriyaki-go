@@ -17,137 +17,13 @@ import (
 
 // SignedTransaction represents a signed and ready-to-broadcast Solana transaction.
 type SignedTransaction struct {
-	Bytes     []byte    // Full signed transaction bytes (ready for RPC broadcast)
-	Signature [64]byte  // Transaction signature (for audit trail and tracking)
+	Bytes     []byte   // Full signed transaction bytes (ready for RPC broadcast)
+	Signature [64]byte // Transaction signature (for audit trail and tracking)
 }
 
 // ==============================================================================
 // TRANSACTION SIGNER (Sign and submit pledges to the blockchain)
 // ==============================================================================
-
-// SignInitializePledgeTransaction builds, signs, and prepares for submission
-// the initialize_pledge transaction.
-//
-// This is the entry point for creating a new pledge from the backend.
-// The backend decides the user meets pledge requirements, then calls this
-// to lock funds on-chain.
-//
-// Workflow:
-//  1. Compute pledge PDA from user + pledge_id
-//  2. Build the initialize_pledge instruction
-//  3. Construct a transaction with the instruction
-//  4. SIGN the transaction with the user's private key
-//     (User must authorize fund lock; user is the feepayer)
-//  5. Return signed transaction ready to broadcast to RPC
-//
-// Arguments:
-//
-//	userPubkey: [32]byte pubkey of the pledge creator (must match private key)
-//	userPrivateKey: [64]byte ed25519 keypair (private + public); user signs
-//	pledgeID: the habit commitment ID
-//	oraclePubkey: [32]byte pubkey of the oracle authority
-//	escrowAmount: lamports to lock
-//	deadlineTS: unix seconds deadline for habit completion
-//	systemProgramID: Solana system program address
-//	habitProgramID: the Habitat Solana program address
-//
-// Returns:
-//
-//	SignedTransaction with bytes and signature ready to broadcast
-//	pledgePDA: [32]byte address of the vault PDA (for backend record-keeping)
-//	err: non-nil if signing or construction fails
-func SignInitializePledgeTransaction(
-	userPubkey [32]byte,
-	userPrivateKey [64]byte,
-	pledgeID string,
-	oraclePubkey [32]byte,
-	escrowAmount uint64,
-	deadlineTS int64,
-	systemProgramID [32]byte,
-	habitProgramID [32]byte,
-) (SignedTransaction, [32]byte, error) {
-	// Step 1: Derive the pledge PDA where escrow will be locked.
-	pledgePDA, _, err := DerivePledgePDA(pledgeID, userPubkey, habitProgramID)
-	if err != nil {
-		return SignedTransaction{}, [32]byte{}, fmt.Errorf("derive PDA: %w", err)
-	}
-
-	// Step 2: Build the instruction.
-	args := abi.InitializePledgeArgs{
-		PledgeID:          pledgeID,
-		OraclePubkey:      oraclePubkey,
-		EscrowAmount:      escrowAmount,
-		DeadlineTimestamp: deadlineTS,
-	}
-
-	instr, err := InitializePledgeInstruction(
-		args,
-		userPubkey,
-		systemProgramID,
-		pledgePDA,
-		habitProgramID,
-	)
-	if err != nil {
-		return SignedTransaction{}, pledgePDA, fmt.Errorf("build instruction: %w", err)
-	}
-
-	// Step 3: Build the full transaction message.
-	//         NOTE: This step requires a recent blockhash from RPC (not provided here).
-	//         In production, fetch via RPC.GetLatestBlockhash() before calling this function.
-	//         For now, use a placeholder/zero blockhash for testing.
-	var recentBlockhash solana.Hash // TODO: fetch from RPC
-
-	// Convert our TransactionInstruction to solana-go format.
-	// Create account metadata slice from our instruction's accounts.
-	accountMetaSlice := solana.AccountMetaSlice{}
-	for _, meta := range instr.Accounts {
-		accountMetaSlice = append(accountMetaSlice, &solana.AccountMeta{
-			PublicKey:  solana.PublicKeyFromBytes(meta.Pubkey[:]),
-			IsSigner:   meta.IsSigner,
-			IsWritable: meta.IsWritable,
-		})
-	}
-
-	// Build a transaction instruction for solana-go.
-	// Use NewInstruction helper which implements the Instruction interface.
-	txInstr := solana.NewInstruction(
-		solana.PublicKeyFromBytes(instr.ProgramID[:]),
-		accountMetaSlice,
-		instr.Data,
-	)
-
-	// Create the full transaction using solana-go's builder.
-	tx, err := solana.NewTransaction(
-		[]solana.Instruction{txInstr},
-		recentBlockhash,
-	)
-	if err != nil {
-		return SignedTransaction{}, pledgePDA, fmt.Errorf("create transaction: %w", err)
-	}
-
-	// Step 4: Sign the transaction with the user's private key.
-	//         The Message is marshaled to binary, and ed25519 signs those bytes.
-	//         The signature is placed at index 0 (first signer) in the Signatures list.
-	userPrivKey := ed25519.PrivateKey(userPrivateKey[:])
-	messageBytes, err := tx.Message.MarshalBinary()
-	if err != nil {
-		return SignedTransaction{}, pledgePDA, fmt.Errorf("marshal message: %w", err)
-	}
-
-	userSig := ed25519.Sign(userPrivKey, messageBytes)
-	tx.Signatures = []solana.Signature{solana.SignatureFromBytes(userSig)}
-
-	// Serialize the signed transaction to bytes for RPC submission.
-	signedTxBytes, err := tx.MarshalBinary()
-	if err != nil {
-		return SignedTransaction{}, pledgePDA, fmt.Errorf("marshal transaction: %w", err)
-	}
-
-	return SignedTransaction{
-		Bytes:     signedTxBytes,
-		Signature: solana.SignatureFromBytes(userSig),
-	}, pledgePDA, nil
-}
 
 // SignResolveSuccessTransaction builds, signs, and prepares for submission
 // the resolve_success transaction.

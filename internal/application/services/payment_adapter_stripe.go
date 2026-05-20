@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/stripe/stripe-go/v84"
 	"github.com/stripe/stripe-go/v84/customer"
@@ -24,7 +26,12 @@ func NewStripePaymentGatewayAdapter(secretKey string) *StripePaymentGatewayAdapt
 	return &StripePaymentGatewayAdapter{secretKey: secretKey}
 }
 
-func (a *StripePaymentGatewayAdapter) CreateCollectionIntent(req CollectionIntentRequest) (*CollectionIntentResult, error) {
+func (a *StripePaymentGatewayAdapter) CreateCollectionIntent(req_ CollectionIntentRequestPayload) (CollectionIntentResultPayload, error) {
+	req, ok := req_.(StripeCollectionIntentRequest)
+	if !ok {
+		return nil, fmt.Errorf("stripe CreateCollectionIntent requires StripeCollectionIntentRequest")
+	}
+
 	stripe.Key = a.secretKey
 	currency := req.Currency
 	if currency == "" {
@@ -44,7 +51,7 @@ func (a *StripePaymentGatewayAdapter) CreateCollectionIntent(req CollectionInten
 		return nil, err
 	}
 
-	return &CollectionIntentResult{
+	return &StripeCollectionIntentResult{
 		ProviderReference: pi.ID,
 		ClientSecret:      pi.ClientSecret,
 		Status:            entities.SettlementStatusPending,
@@ -127,7 +134,12 @@ func (a *StripePaymentGatewayAdapter) LinkPaymentMethodToPayer(req PaymentMethod
 	return err
 }
 
-func (a *StripePaymentGatewayAdapter) CreateSettlementIntent(req SettlementIntentRequest) (*SettlementIntentResult, error) {
+func (a *StripePaymentGatewayAdapter) CreateSettlementIntent(req_ SettlementIntentRequestPayload) (SettlementIntentResultPayload, error) {
+	req, ok := req_.(StripeSettlementIntentRequest)
+	if !ok {
+		return nil, fmt.Errorf("stripe CreateSettlementIntent requires StripeSettlementIntentRequest")
+	}
+
 	stripe.Key = a.secretKey
 	currency := req.Currency
 	if currency == "" {
@@ -151,14 +163,19 @@ func (a *StripePaymentGatewayAdapter) CreateSettlementIntent(req SettlementInten
 		status = entities.SettlementStatusCaptured
 	}
 
-	return &SettlementIntentResult{
+	return &StripeSettlementIntentResult{
 		ProviderReference: pi.ID,
 		ClientSecret:      pi.ClientSecret,
 		Status:            status,
 	}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) ResolveSettlement(req SettlementResolutionRequest) (*SettlementResolutionResult, error) {
+func (a *StripePaymentGatewayAdapter) ResolveSettlement(req_ SettlementResolutionRequestPayload) (SettlementResolutionResultPayload, error) {
+	req, ok := req_.(StripeSettlementResolutionRequest)
+	if !ok {
+		return nil, fmt.Errorf("stripe ResolveSettlement requires StripeSettlementResolutionRequest")
+	}
+
 	stripe.Key = a.secretKey
 
 	if req.Resolution == entities.SettlementStatusRefunded {
@@ -166,15 +183,20 @@ func (a *StripePaymentGatewayAdapter) ResolveSettlement(req SettlementResolution
 		if err != nil {
 			return nil, err
 		}
-		return &SettlementResolutionResult{ProviderReference: req.ProviderReference, Status: entities.SettlementStatusRefunded}, nil
+		return &StripeSettlementResolutionResult{ProviderReference: req.ProviderReference, Status: entities.SettlementStatusRefunded}, nil
 	}
 
-	return a.QuerySettlementStatus(req.ProviderReference)
+	return a.QuerySettlementStatus(StripeQuerySettlementStatusRequest{ProviderReference: req.ProviderReference})
 }
 
-func (a *StripePaymentGatewayAdapter) QuerySettlementStatus(providerReference string) (*SettlementResolutionResult, error) {
+func (a *StripePaymentGatewayAdapter) QuerySettlementStatus(req_ QuerySettlementStatusRequestPayload) (SettlementResolutionResultPayload, error) {
+	req, ok := req_.(StripeQuerySettlementStatusRequest)
+	if !ok {
+		return nil, fmt.Errorf("stripe QuerySettlementStatus requires StripeQuerySettlementStatusRequest")
+	}
+
 	stripe.Key = a.secretKey
-	pi, err := paymentintent.Get(providerReference, nil)
+	pi, err := paymentintent.Get(req.ProviderReference, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -189,10 +211,15 @@ func (a *StripePaymentGatewayAdapter) QuerySettlementStatus(providerReference st
 		status = entities.SettlementStatusFailed
 	}
 
-	return &SettlementResolutionResult{ProviderReference: providerReference, Status: status}, nil
+	return &StripeSettlementResolutionResult{ProviderReference: req.ProviderReference, Status: status}, nil
 }
 
-func (a *StripePaymentGatewayAdapter) CreateDisbursement(req DisbursementRequest) (*DisbursementResult, error) {
+func (a *StripePaymentGatewayAdapter) CreateDisbursement(req_ DisbursementRequestPayload) (DisbursementResultPayload, error) {
+	req, ok := req_.(StripeDisbursementRequest)
+	if !ok {
+		return nil, fmt.Errorf("stripe CreateDisbursement requires StripeDisbursementRequest")
+	}
+
 	stripe.Key = a.secretKey
 	currency := req.Currency
 	if currency == "" {
@@ -208,5 +235,5 @@ func (a *StripePaymentGatewayAdapter) CreateDisbursement(req DisbursementRequest
 		return nil, err
 	}
 
-	return &DisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
+	return &StripeDisbursementResult{ProviderReference: req.DestinationReference, Status: entities.SettlementStatusCaptured}, nil
 }

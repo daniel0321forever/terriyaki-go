@@ -373,6 +373,67 @@ This project uses four testing levels. Keep each level in its owning layer to ke
   ```bash
   go test -v ./tests/integration/...
   ```
+### 5. Blockchain Validation Tests (Solana Adapter)
+- **Scope**: Validate the Solana payment adapter in backend really work on chain.
+- **Location**: `tests/blockchain_validation/*_test.go`
+- **Dependencies**: Requires a running local Solana validator and the deployed program.
+- **Command**:
+  ```bash
+  # 1. Start the local Solana validator with a persistent ledger (keeps block history)
+  solana-test-validator --ledger ./test-ledger --reset &
+
+  # 2. Stream validator logs in the background (capture signatures printed by the validator)
+  solana logs --url http://127.0.0.1:8899 &
+
+  # 3. Export Solana env vars for the backend (helper script). Use the workspace helper or the backend one.
+  ./scripts/setup_solana_env.sh
+
+  # 4. Start the backend (which includes the Solana adapter)
+  go run ./internal/cmd/api_server/
+
+  # 5. Run the Solana E2E test (this will exercise the adapter and emit a signature to logs)
+  go test -v ./tests/blockchain_validation -run TestSolanaE2E -count=1
+
+  # 6. When you see a signature in the logs (e.g. SIG = 3Rm9Hye2...), query the RPC immediately
+  # Replace <SIG> with the signature you observed in the logs
+  curl -s -X POST http://127.0.0.1:8899 -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"getTransaction","params":["<SIG>", {"encoding":"jsonParsed"}]}' | jq .
+
+  # 7. If you prefer to inspect the whole block (slot shown in logs), query getBlock:
+  # Replace <SLOT> with the slot number printed by the logs
+  curl -s -X POST http://127.0.0.1:8899 -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"getBlock","params":[<SLOT>]}' | jq .
+
+  # 8. After testing, stop the validator and clean up the ledger
+  pkill -f solana-test-validator
+  ```
+
+  Notes:
+  - Starting `solana-test-validator` with `--ledger` preserves block history so `getTransaction`/`getBlock` can return results after the test completes. Without a ledger (or when the node prunes old blocks), `getTransaction` may return `null` even though `solana logs` shows the tx executed.
+  - Stream `solana logs` while running the test to capture the exact signature and slot immediately; then call `getTransaction` right away for reliable results.
+  - For CI or ephemeral runs you may still use `--reset`, but historical RPC queries will usually be unavailable.
+  - Can also search the signature inside test-ledger/validator.log for persistent history.
+  #### [Details] Solana local environment for backend
+
+  To run the backend with the Solana payment adapter against a local validator, export the required Solana environment variables. A helper script is provided at the workspace root to generate and export them from a local keypair file.
+
+  -- Source the script (uses `~/.config/solana/id.json` by default).
+  ```bash
+  ./scripts/setup_solana_env.sh
+  ```
+
+  -- Or pass an explicit keypair file:
+
+  ```bash
+  ./backend/scripts/setup_solana_env.sh solana/target/deploy/habitat_settlement_program-keypair.json
+  ```
+
+  This sets the following environment variables in your current shell:
+
+  - `SOLANA_RPC_ENDPOINT` — `http://127.0.0.1:8899`
+  - `SOLANA_PROGRAM_ID` — `BgNjXioQqVNNihH4QCtjthDKAynZLVDixArQgmY7oRM4`
+  - `SOLANA_ORACLE_PRIVATE_KEY` — base58-encoded private key derived from the keypair file
+  - `SOLANA_ORACLE_PUBKEY` — pubkey derived via `solana-keygen pubkey` (if available)
 
 ### Why This Separation?
 

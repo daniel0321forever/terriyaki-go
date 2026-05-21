@@ -53,3 +53,5 @@ temp/
 
 # go build
 build
+
+**/test-ledger/*

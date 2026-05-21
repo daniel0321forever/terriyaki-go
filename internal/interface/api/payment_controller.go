@@ -168,11 +168,6 @@ func (ctrl *PaymentController) AddPaymentMethodAPI(c *gin.Context) {
 		return
 	}
 
-	if ctrl.stripeService == nil {
-		RespondInternalServerError(c, "Stripe payment service is not configured")
-		return
-	}
-
 	addMethodDTO, err := dto.NewAddPaymentMethodDTO(
 		userID,
 		body.MethodType,
@@ -186,8 +181,27 @@ func (ctrl *PaymentController) AddPaymentMethodAPI(c *gin.Context) {
 		return
 	}
 
+	var paymentService services.PaymentServiceCore
+	switch strings.ToLower(strings.TrimSpace(body.MethodType)) {
+	case "card":
+		if ctrl.stripeService == nil {
+			RespondInternalServerError(c, "Stripe payment service is not configured")
+			return
+		}
+		paymentService = ctrl.stripeService
+	case "solana_wallet":
+		if ctrl.solanaService == nil {
+			RespondInternalServerError(c, "Solana payment service is not configured")
+			return
+		}
+		paymentService = ctrl.solanaService
+	default:
+		RespondBadRequest(c, "Invalid method_type: supported values are 'card' and 'solana_wallet'")
+		return
+	}
+
 	// add payment method
-	result, err := ctrl.stripeService.AddPaymentMethod(addMethodDTO)
+	result, err := paymentService.AddPaymentMethod(addMethodDTO)
 	if err != nil {
 		fmt.Println(err)
 		RespondInternalServerError(c, "Internal Server Error")

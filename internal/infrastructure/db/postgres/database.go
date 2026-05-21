@@ -16,8 +16,8 @@ var Db *gorm.DB //created outside to make it global.
 func Connect() (*gorm.DB, error) {
 	fmt.Println("Connecting to database...")
 	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error is occurred  on .env file please check")
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("Warning: error loading .env file:", err)
 	}
 
 	host := os.Getenv("POSTGRES_HOST")
@@ -57,8 +57,8 @@ func Connect() (*gorm.DB, error) {
 func ConnectTestDB() (*gorm.DB, error) {
 	fmt.Println("Connecting to test database...")
 	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error is occurred  on .env file please check")
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("Warning: error loading .env file:", err)
 	}
 
 	host := os.Getenv("TEST_POSTGRES_HOST")

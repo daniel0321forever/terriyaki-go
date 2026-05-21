@@ -1,9 +1,9 @@
-.PHONY: test test-unit test-repo-integration test-e2e test-coverage lint build run clean ci-local
+.PHONY: test test-unit test-repo-integration test-e2e test-blockchain-validation test-coverage lint build run clean ci-local
 
 # Run all tests
 test: test-unit test-repo-integration test-e2e
 
-# Run the local CI sequence end-to-end
+# Run the local CI sequence end-to-end (excludes Solana tests which require validator)
 ci-local: test-unit test-repo-integration test-e2e validate-openapi
 
 # Run unit tests only
@@ -18,9 +18,13 @@ test-repo-integration:
 	fi
 	go test -v -race -tags=integration ./internal/infrastructure/db/postgres/...
 
-# Run end-to-end integration tests (HTTP -> service -> db)
+# Run end-to-end integration tests (HTTP -> service -> db) - excludes blockchain validation tests
 test-e2e:
 	go test -v -race ./tests/integration/...
+
+# Run blockchain validation tests (requires: solana-cli, validator running on http://127.0.0.1:8899)
+test-blockchain-validation:
+	go test -v -race ./tests/blockchain_validation/...
 
 # Generate coverage report
 test-coverage: test-unit

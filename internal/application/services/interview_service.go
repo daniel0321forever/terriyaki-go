@@ -78,4 +78,3 @@ func (s *InterviewService) UpdateSession(request dto.UpdateInterviewSessionDTO) 
 
 	return s.toInterviewSessionDTO(session), nil
 }
-

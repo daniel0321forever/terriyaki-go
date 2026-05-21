@@ -296,6 +296,16 @@ func (ctrl *PaymentController) PaymentIntentAPI(c *gin.Context) {
 
 ## Running the Backend Server
 
+### Git Hooks
+
+Install the local pre-commit hook from the backend root:
+
+```bash
+sh scripts/install_git_hooks.sh
+```
+
+This configures Git to use [`.githooks/pre-commit`](.githooks/pre-commit) and runs `gofmt` on staged Go files before each commit.
+
 ### Start the Backend
 
 ```bash

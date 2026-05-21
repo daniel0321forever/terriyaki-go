@@ -138,12 +138,12 @@ type SolanaSettlementResolutionRequest struct {
 	Amount            int64
 	Currency          string
 	// Oracle signing parameters (for resolve_success/resolve_failure paths)
-	PledgePDA          string // base58 pledge account address
-	UserPubkey         string // base58 user wallet pubkey (for success) or penalty pool (for failure)
-	PenaltyPoolKey     string // base58 penalty pool pubkey (only for failure)
-	TxHashProof        string // off-chain transaction ID for audit trail
-	Network            string // solana network (devnet/mainnet)
-	Operation          string // operation name for audit/logging
+	PledgePDA      string // base58 pledge account address
+	UserPubkey     string // base58 user wallet pubkey (for success) or penalty pool (for failure)
+	PenaltyPoolKey string // base58 penalty pool pubkey (only for failure)
+	TxHashProof    string // off-chain transaction ID for audit trail
+	Network        string // solana network (devnet/mainnet)
+	Operation      string // operation name for audit/logging
 }
 
 func (SolanaSettlementResolutionRequest) isSettlementResolutionRequestPayload() {}
@@ -152,9 +152,9 @@ type SolanaSettlementResolutionResult struct {
 	ProviderReference string
 	Status            entities.SettlementStatus
 	// Oracle resolution result
-	Signature         string // transaction signature (if signed)
-	SettlementProof   string // JSON proof (if signed)
-	SignedTxBase64    string // base64 signed transaction (if applicable)
+	Signature       string // transaction signature (if signed)
+	SettlementProof string // JSON proof (if signed)
+	SignedTxBase64  string // base64 signed transaction (if applicable)
 }
 
 func (*SolanaSettlementResolutionResult) isSettlementResolutionResultPayload() {}

@@ -16,6 +16,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"github.com/daniel0321forever/terriyaki-go/internal/interface/api"
 	"github.com/daniel0321forever/terriyaki-go/migrations"
+	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
@@ -23,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	solanaGo "github.com/gagliardetto/solana-go"
 )
 
 var (

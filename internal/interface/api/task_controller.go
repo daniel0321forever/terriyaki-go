@@ -48,7 +48,7 @@ func (ctrl *TaskController) GetTaskAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"task":    taskDTO,
+		"task": taskDTO,
 	})
 }
 
@@ -76,7 +76,7 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusOK, gin.H{
-				"task":    nil,
+				"task": nil,
 			})
 			return
 		}
@@ -85,7 +85,7 @@ func (ctrl *TaskController) GetTodayTaskAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"task":    taskDTO,
+		"task": taskDTO,
 	})
 }
 

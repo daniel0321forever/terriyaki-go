@@ -28,14 +28,14 @@ var (
 
 // Grind service errors
 var (
-	ErrGrindNotFound             = errors.New("grind not found")
-	ErrNoOngoingGrind            = errors.New("no ongoing grind found")
+	ErrGrindNotFound              = errors.New("grind not found")
+	ErrNoOngoingGrind             = errors.New("no ongoing grind found")
 	ErrUserNotParticipatingOrQuit = errors.New("user not participating or quitted")
-	ErrTasksNotFound             = errors.New("tasks not found")
-	ErrGrindUpdateFailed         = errors.New("grind update failed")
-	ErrParticipationNotFound     = errors.New("participation not found")
-	ErrUserIsNotParticipant      = errors.New("user is not a participant of the grind")
-	ErrParticipationUpdateFailed = errors.New("participation update failed")
+	ErrTasksNotFound              = errors.New("tasks not found")
+	ErrGrindUpdateFailed          = errors.New("grind update failed")
+	ErrParticipationNotFound      = errors.New("participation not found")
+	ErrUserIsNotParticipant       = errors.New("user is not a participant of the grind")
+	ErrParticipationUpdateFailed  = errors.New("participation update failed")
 )
 
 // User service errors

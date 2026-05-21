@@ -11,13 +11,13 @@ import (
 
 type InterviewSessionSchema struct {
 	gorm.Model
-	ID                 string         `json:"id" gorm:"primaryKey"`
-	UserID             string         `json:"user_id" gorm:"not null"`
-	TaskID             string         `json:"task_id" gorm:"not null"`
-	Status             string         `json:"status" gorm:"not null"`
+	ID                  string         `json:"id" gorm:"primaryKey"`
+	UserID              string         `json:"user_id" gorm:"not null"`
+	TaskID              string         `json:"task_id" gorm:"not null"`
+	Status              string         `json:"status" gorm:"not null"`
 	ConversationHistory datatypes.JSON `json:"conversation_history" gorm:"type:jsonb"`
-	StartedAt          time.Time      `json:"started_at" gorm:"not null"`
-	EndedAt            *time.Time     `json:"ended_at" gorm:""`
+	StartedAt           time.Time      `json:"started_at" gorm:"not null"`
+	EndedAt             *time.Time     `json:"ended_at" gorm:""`
 }
 
 func (InterviewSessionSchema) TableName() string {
@@ -35,13 +35,13 @@ func NewGormInterviewSessionRepository(db *gorm.DB) *GormInterviewSessionReposit
 func (r *GormInterviewSessionRepository) Create(session *entities.InterviewSession) error {
 	ctx := context.Background()
 	model := InterviewSessionSchema{
-		ID:                 session.ID,
-		UserID:             session.UserID,
-		TaskID:             session.TaskID,
-		Status:             session.Status,
+		ID:                  session.ID,
+		UserID:              session.UserID,
+		TaskID:              session.TaskID,
+		Status:              session.Status,
 		ConversationHistory: session.ConversationHistory,
-		StartedAt:          session.StartedAt,
-		EndedAt:            session.EndedAt,
+		StartedAt:           session.StartedAt,
+		EndedAt:             session.EndedAt,
 	}
 	return r.db.WithContext(ctx).Create(&model).Error
 }
@@ -54,27 +54,26 @@ func (r *GormInterviewSessionRepository) FindByID(id string) (*entities.Intervie
 	}
 
 	return &entities.InterviewSession{
-		ID:                 model.ID,
-		UserID:             model.UserID,
-		TaskID:             model.TaskID,
-		Status:             model.Status,
+		ID:                  model.ID,
+		UserID:              model.UserID,
+		TaskID:              model.TaskID,
+		Status:              model.Status,
 		ConversationHistory: model.ConversationHistory,
-		StartedAt:          model.StartedAt,
-		EndedAt:            model.EndedAt,
+		StartedAt:           model.StartedAt,
+		EndedAt:             model.EndedAt,
 	}, nil
 }
 
 func (r *GormInterviewSessionRepository) Update(session *entities.InterviewSession) error {
 	ctx := context.Background()
 	model := InterviewSessionSchema{
-		ID:                 session.ID,
-		UserID:             session.UserID,
-		TaskID:             session.TaskID,
-		Status:             session.Status,
+		ID:                  session.ID,
+		UserID:              session.UserID,
+		TaskID:              session.TaskID,
+		Status:              session.Status,
 		ConversationHistory: session.ConversationHistory,
-		StartedAt:          session.StartedAt,
-		EndedAt:            session.EndedAt,
+		StartedAt:           session.StartedAt,
+		EndedAt:             session.EndedAt,
 	}
 	return r.db.WithContext(ctx).Model(&InterviewSessionSchema{}).Where("id = ?", session.ID).Updates(&model).Error
 }
-

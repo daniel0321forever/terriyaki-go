@@ -25,4 +25,3 @@ func BuildInterviewSessionDTO(session *entities.InterviewSession) *dto.Interview
 		EndedAt:             session.EndedAt,
 	}
 }
-

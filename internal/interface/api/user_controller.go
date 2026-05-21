@@ -197,7 +197,7 @@ func (ctrl *UserController) LoginAPIV2(c *gin.Context) {
 		}
 	} else {
 		grinds = sortedGroupGrindList(grindsMap)
-}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
@@ -267,7 +267,7 @@ func (ctrl *UserController) VerifyTokenAPIV2(c *gin.Context) {
 		UserID: userDTO.ID,
 	}
 
-grindsMap, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
+	grindsMap, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
 	grinds := make([]*dto.GroupGrindDTO, 0)
 
 	if err != nil {
@@ -281,8 +281,8 @@ grindsMap, err := ctrl.grindService.GetAllUserGrinds(getGrindsDTO)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user":    userDTO,
-		"grinds":  grinds,
+		"user":   userDTO,
+		"grinds": grinds,
 	})
 }
 

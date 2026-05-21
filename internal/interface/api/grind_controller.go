@@ -60,18 +60,18 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 
 	var duration int
 	switch v := body["duration"].(type) {
-		case string:
-			parsed, parseErr := strconv.Atoi(v)
-			if parseErr != nil {
-				RespondBadRequest(c, "invalid duration")
-				return
-			}
-			duration = parsed
-		case float64:
-			duration = int(v)
-		default:
+	case string:
+		parsed, parseErr := strconv.Atoi(v)
+		if parseErr != nil {
 			RespondBadRequest(c, "invalid duration")
 			return
+		}
+		duration = parsed
+	case float64:
+		duration = int(v)
+	default:
+		RespondBadRequest(c, "invalid duration")
+		return
 	}
 
 	budgetValue, ok := body["budget"].(float64)
@@ -176,7 +176,7 @@ func (ctrl *GrindController) GetGrindAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"grind":   grindDTO,
+		"grind": grindDTO,
 	})
 }
 
@@ -198,7 +198,7 @@ func (ctrl *GrindController) GetUserCurrentGrindAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"grind":   grindDTO,
+		"grind": grindDTO,
 	})
 }
 

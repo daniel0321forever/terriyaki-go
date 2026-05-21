@@ -13,7 +13,7 @@ func BuildGroupGrindDTO(grind *entities.Grind, participants []entities.User) *dt
 	tasks := grind.Tasks
 	taskProgressDTOs := make([]dto.TaskProgressDTO, 0, len(tasks))
 	for i := range tasks {
-			taskProgressDTO := BuildTaskProgressDTO(&tasks[i])
+		taskProgressDTO := BuildTaskProgressDTO(&tasks[i])
 		if taskProgressDTO != nil {
 			taskProgressDTOs = append(taskProgressDTOs, *taskProgressDTO)
 		}

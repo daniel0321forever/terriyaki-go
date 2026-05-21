@@ -13,10 +13,10 @@ import (
 // that the client wallet can consume and sign. This is intentionally a
 // high-level placeholder while binary tx construction is finalized.
 type UnsignedTxEnvelope struct {
-	ProgramID       string `json:"program_id"`
+	ProgramID       string   `json:"program_id"`
 	Accounts        []string `json:"accounts"`
-	InstructionB64  string `json:"instruction_b64"`
-	RecentBlockhash string `json:"recent_blockhash"`
+	InstructionB64  string   `json:"instruction_b64"`
+	RecentBlockhash string   `json:"recent_blockhash"`
 }
 
 // BuildInitializePledgeUnsignedTx builds an unsigned transaction envelope for

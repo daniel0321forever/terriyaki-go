@@ -9,4 +9,3 @@ type InterviewSessionRepository interface {
 	FindByID(id string) (*entities.InterviewSession, error)
 	Update(session *entities.InterviewSession) error
 }
-

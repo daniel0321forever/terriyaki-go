@@ -305,6 +305,7 @@ sh scripts/install_git_hooks.sh
 ```
 
 This configures Git to use [`.githooks/pre-commit`](.githooks/pre-commit) and runs `gofmt` on staged Go files before each commit.
+If `golangci-lint` is installed locally, the hook also runs it against the touched Go packages so you catch the same lint failures that CI enforces.
 
 ### Start the Backend
 

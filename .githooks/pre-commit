@@ -10,3 +10,15 @@ fi
 echo "Running gofmt on staged Go files..."
 printf '%s\n' "$STAGED_GO_FILES" | xargs gofmt -w
 printf '%s\n' "$STAGED_GO_FILES" | xargs git add
+
+if command -v golangci-lint >/dev/null 2>&1; then
+  LINT_TARGETS=$(printf '%s\n' "$STAGED_GO_FILES" | xargs -n 1 dirname | sort -u)
+
+  if [ -n "$LINT_TARGETS" ]; then
+    echo "Running golangci-lint on staged Go packages..."
+    # shellcheck disable=SC2086
+    golangci-lint run $LINT_TARGETS
+  fi
+else
+  echo "golangci-lint not found; skipping lint check in pre-commit. CI will still enforce it."
+fi

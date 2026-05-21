@@ -1,0 +1,574 @@
+{
+  "address": "BgNjXioQqVNNihH4QCtjthDKAynZLVDixArQgmY7oRM4",
+  "metadata": {
+    "name": "habitat_settlement_program",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "docs": [
+    "The #[program] attribute marks this module as the Anchor program entrypoint.",
+    "All public functions inside become RPC-callable instructions."
+  ],
+  "instructions": [
+    {
+      "name": "claim_timeout",
+      "docs": [
+        "User claims timeout refund after deadline has passed without oracle resolution.",
+        "",
+        "# Constraints",
+        "* Signer must be the user (owner of pledge)",
+        "* Current timestamp must be >= deadline_timestamp",
+        "* Pledge must still be in Pending status"
+      ],
+      "discriminator": [
+        130,
+        234,
+        45,
+        53,
+        120,
+        90,
+        86,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "docs": [
+            "The user (pledge owner) claiming the timeout.",
+            "#[signer] = must sign.",
+            "address constraint: must match the user_pubkey in the pledge."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pledge",
+          "docs": [
+            "The pledge account.",
+            "mut because we update its status."
+          ],
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Required for CPI transfers"
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_pledge",
+      "docs": [
+        "Initialize a new pledge escrow with user, oracle, and deadline.",
+        "",
+        "# Arguments",
+        "* `ctx` - Account context containing payer, pledge account, and system program",
+        "* `args` - InitializePledgeArgs with pledge_id, amounts, and deadline",
+        "",
+        "# Returns",
+        "Ok(()) on success, Err(ContractError) on validation failure"
+      ],
+      "discriminator": [
+        166,
+        99,
+        245,
+        246,
+        69,
+        213,
+        109,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "The transaction payer (usually the user, but could be anyone).",
+            "#[signer] means this account must have signed the transaction.",
+            "mut (mutable) because Solana deducts rent from it."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pledge",
+          "docs": [
+            "The pledge account PDA (Program Derived Address).",
+            "#[account(init, ...)] means Anchor will create this account for us.",
+            "space = 8 + ... calculates rent based on serialized size.",
+            "payer = payer sets who pays for account creation.",
+            "seeds/bump = deterministic address derivation from pledge_id."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  101,
+                  100,
+                  103,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "arg",
+                "path": "args.pledge_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Anchor's built-in system program.",
+            "Required for account creation (#[account(init, ...)])."
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "InitializePledgeArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "resolve_failure",
+      "docs": [
+        "Oracle resolves pledge as failed (user did not win, oracle confirms).",
+        "",
+        "# Constraints",
+        "* Signer must be the oracle",
+        "* Pledge must be in Pending status"
+      ],
+      "discriminator": [
+        173,
+        82,
+        111,
+        131,
+        126,
+        40,
+        198,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "docs": [
+            "The oracle account that resolves pledges.",
+            "#[signer] = must sign the transaction."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pledge",
+          "docs": [
+            "The pledge account to resolve.",
+            "mut because we update its status field.",
+            "constraint checks oracle_pubkey matches oracle signer."
+          ],
+          "writable": true
+        },
+        {
+          "name": "user",
+          "docs": [
+            "The user's wallet (receives funds on success)",
+            "- mut: we're sending lamports TO this account (modifies its lamport balance)",
+            "- address = constraint: validates this is the correct user from the pledge"
+          ],
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Required for CPI transfers"
+          ],
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "penalty_pool",
+          "docs": [
+            "The penalty destination for failed oracle resolutions."
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "resolution_proof",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "resolve_success",
+      "docs": [
+        "Oracle resolves pledge as successful (user won, oracle confirms).",
+        "",
+        "# Constraints",
+        "* Signer must be the oracle (checked by #[signer] in context)",
+        "* Pledge must be in Pending status"
+      ],
+      "discriminator": [
+        164,
+        251,
+        118,
+        169,
+        186,
+        88,
+        234,
+        37
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "docs": [
+            "The oracle account that resolves pledges.",
+            "#[signer] = must sign the transaction."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pledge",
+          "docs": [
+            "The pledge account to resolve.",
+            "mut because we update its status field.",
+            "constraint checks oracle_pubkey matches oracle signer."
+          ],
+          "writable": true
+        },
+        {
+          "name": "user",
+          "docs": [
+            "The user's wallet (receives funds on success)",
+            "- mut: we're sending lamports TO this account (modifies its lamport balance)",
+            "- address = constraint: validates this is the correct user from the pledge"
+          ],
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Required for CPI transfers"
+          ],
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "penalty_pool",
+          "docs": [
+            "The penalty destination for failed oracle resolutions."
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "resolution_proof",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "PledgeState",
+      "discriminator": [
+        144,
+        102,
+        232,
+        67,
+        95,
+        159,
+        157,
+        221
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "PledgeInitialized",
+      "discriminator": [
+        72,
+        111,
+        198,
+        243,
+        109,
+        37,
+        230,
+        42
+      ]
+    },
+    {
+      "name": "PledgeResolved",
+      "discriminator": [
+        163,
+        133,
+        201,
+        66,
+        107,
+        157,
+        148,
+        156
+      ]
+    },
+    {
+      "name": "PledgeTimeoutClaimed",
+      "discriminator": [
+        221,
+        236,
+        94,
+        175,
+        128,
+        88,
+        92,
+        118
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidInstruction",
+      "msg": "Invalid instruction"
+    },
+    {
+      "code": 6001,
+      "name": "AccountOwnershipMismatch",
+      "msg": "Account ownership mismatch"
+    },
+    {
+      "code": 6002,
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds"
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedOracle",
+      "msg": "Unauthorized oracle signer"
+    },
+    {
+      "code": 6004,
+      "name": "UnauthorizedUser",
+      "msg": "Unauthorized user signer"
+    },
+    {
+      "code": 6005,
+      "name": "DeadlineNotReached",
+      "msg": "Deadline not reached"
+    },
+    {
+      "code": 6006,
+      "name": "TimeoutNotReached",
+      "msg": "Timeout grace period not reached"
+    },
+    {
+      "code": 6007,
+      "name": "ProviderUnavailable",
+      "msg": "Provider unavailable"
+    },
+    {
+      "code": 6008,
+      "name": "AlreadyResolved",
+      "msg": "Pledge already resolved"
+    }
+  ],
+  "types": [
+    {
+      "name": "InitializePledgeArgs",
+      "docs": [
+        "Arguments for initializing a new pledge.",
+        "Sent by the client in the initialize_pledge instruction."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pledge_id",
+            "type": "string"
+          },
+          {
+            "name": "oracle_pubkey",
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PledgeInitialized",
+      "docs": [
+        "Emitted when a new pledge is initialized.",
+        "",
+        "Clients listen to this event to know when a pledge enters the system.",
+        "All fields are derived from InitializePledgeArgs input."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pledge_id",
+            "type": "string"
+          },
+          {
+            "name": "user_pubkey",
+            "type": "string"
+          },
+          {
+            "name": "oracle_pubkey",
+            "type": "string"
+          },
+          {
+            "name": "escrow_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PledgeResolved",
+      "docs": [
+        "Emitted when an oracle resolves a pledge (success or failure).",
+        "",
+        "The status field indicates \"success\" or \"failure\".",
+        "Clients use this to update off-chain database and notify users."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pledge_id",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "name": "resolution_proof",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PledgeState",
+      "docs": [
+        "Pledge account PDA stored on-chain.",
+        "",
+        "The #[account] attribute tells Anchor to:",
+        "1. Implement serialization/deserialization (borsh)",
+        "2. Add 8-byte discriminator to prevent account type confusion",
+        "3. Include this type in the IDL for clients",
+        "",
+        "This struct is serialized into the account's data buffer and",
+        "persists until the account is closed."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pledge_id",
+            "type": "string"
+          },
+          {
+            "name": "user_pubkey",
+            "type": "string"
+          },
+          {
+            "name": "oracle_pubkey",
+            "type": "string"
+          },
+          {
+            "name": "escrow_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "PledgeStatus"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PledgeStatus",
+      "docs": [
+        "Pledge lifecycle status enum.",
+        "AnchorSerialize/AnchorDeserialize required for use in #[account] structs."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pending"
+          },
+          {
+            "name": "ResolvedSuccess"
+          },
+          {
+            "name": "ResolvedFailure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PledgeTimeoutClaimed",
+      "docs": [
+        "Emitted when a user claims timeout refund (pledge unresolved past deadline).",
+        "",
+        "Indicates the pledge reverted to user without oracle involvement."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pledge_id",
+            "type": "string"
+          },
+          {
+            "name": "user_pubkey",
+            "type": "string"
+          },
+          {
+            "name": "escrow_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

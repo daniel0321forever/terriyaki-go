@@ -1,0 +1,1307 @@
+openapi: 3.0.3
+info:
+  title: Habitat Platform API
+  description: Multi-habit accountability platform with LeetCode, Duolingo, and custom integrations
+  version: 1.0.0
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (v1)
+  - url: http://localhost:8080/api/v2
+    description: Local development (v2 - multi-habit support)
+
+tags:
+  - name: Auth
+    description: Authentication and token management
+  - name: Users
+    description: User profile and settings
+  - name: Grinds
+    description: Habit grinds and commitments
+  - name: Tasks
+    description: Daily habit tasks
+  - name: CompletionEvents
+    description: External habit signal ingestion (Duolingo, etc.)
+  - name: Invitations
+    description: Group invitations and messaging
+  - name: Interviews
+    description: AI coaching and interview sessions
+  - name: Payments
+    description: Payment methods and settlements
+  - name: Health
+    description: System health and observability
+
+paths:
+  /register:
+    post:
+      tags:
+        - Auth
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+                avatar:
+                  type: string
+                  example: https://example.com/avatar.jpg
+              required:
+                - username
+                - email
+                - password
+      responses:
+        "200":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: Login user (v1 - single grind)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /verify-token:
+    get:
+      tags:
+        - Auth
+      summary: Verify JWT token validity
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Token valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /users/update-profile:
+    patch:
+      tags:
+        - Users
+      summary: Update user profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                avatar:
+                  type: string
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+
+  /users/exists:
+    get:
+      tags:
+        - Users
+      summary: Check whether a user exists by email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: User existence result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  exists:
+                    type: boolean
+
+  /grinds:
+    post:
+      tags:
+        - Grinds
+      summary: Create new habit grind
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGrindRequest"
+      responses:
+        "200":
+          description: Grind created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/Grind"
+
+    get:
+      tags:
+        - Grinds
+      summary: List all user grinds
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of grinds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Grind"
+
+  /grinds/current:
+    get:
+      tags:
+        - Grinds
+      summary: Get current ongoing grind
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current grind
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/GrindWithTodayTask"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /grinds/delete-all:
+    delete:
+      tags:
+        - Grinds
+      summary: Delete all grinds (testing utility)
+      responses:
+        "200":
+          description: All grinds deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /grinds/{id}:
+    get:
+      tags:
+        - Grinds
+      summary: Get grind by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: grind_123
+      responses:
+        "200":
+          description: Grind details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grind:
+                    $ref: "#/components/schemas/Grind"
+
+    delete:
+      tags:
+        - Grinds
+      summary: Quit grind
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: grind_123
+      responses:
+        "200":
+          description: Grind quit successfully
+
+  /grinds/{grindId}/progress:
+    get:
+      tags:
+        - Grinds
+      summary: Get grind progress and leaderboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: grind_123
+      responses:
+        "200":
+          description: Grind progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskProgress"
+
+  /tasks/today:
+    get:
+      tags:
+        - Tasks
+      summary: Get today's task
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Today's task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: task_123
+        - name: set-problem
+          in: query
+          required: false
+          schema:
+            type: boolean
+            example: true
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+
+  /tasks/finish:
+    post:
+      tags:
+        - Tasks
+      summary: Mark task as completed (idempotent)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                language:
+                  type: string
+      responses:
+        "200":
+          description: Task completed
+
+  /completion-events/ingest:
+    post:
+      tags:
+        - CompletionEvents
+      summary: Ingest external completion event (webhook)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionEventIngest"
+      responses:
+        "200":
+          description: Event ingested (idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  deduplicated:
+                    type: boolean
+
+  /completion-events:
+    get:
+      tags:
+        - CompletionEvents
+      summary: List completion events for user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: grindId
+          in: query
+          schema:
+            type: string
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum:
+              - leetcode
+              - duolingo
+              - manual
+      responses:
+        "200":
+          description: List of completion events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompletionEvent"
+
+  /messages:
+    get:
+      tags:
+        - Invitations
+      summary: Get received messages
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of received messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
+  /messages/sent:
+    get:
+      tags:
+        - Invitations
+      summary: Get sent messages
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of sent messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
+  /messages/invitation:
+    post:
+      tags:
+        - Invitations
+      summary: Create invitation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                participantEmail:
+                  type: string
+                  format: email
+                grindID:
+                  type: string
+              required:
+                - participantEmail
+                - grindID
+      responses:
+        "200":
+          description: Invitation sent
+
+  /messages/{id}/invitation/accept:
+    post:
+      tags:
+        - Invitations
+      summary: Accept invitation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: msg_123
+      responses:
+        "200":
+          description: Invitation accepted
+
+  /messages/{id}/invitation/reject:
+    post:
+      tags:
+        - Invitations
+      summary: Reject invitation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: msg_123
+      responses:
+        "200":
+          description: Invitation rejected
+
+  /messages/{id}/read:
+    post:
+      tags:
+        - Invitations
+      summary: Mark message as read
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: msg_123
+      responses:
+        "200":
+          description: Message marked as read
+
+  /interviews/start:
+    post:
+      tags:
+        - Interviews
+      summary: Start interview session
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                taskId:
+                  type: string
+              required:
+                - taskId
+      responses:
+        "200":
+          description: Interview session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+
+  /interviews/llm:
+    post:
+      tags:
+        - Interviews
+      summary: Internal LLM callback endpoint
+      responses:
+        "200":
+          description: LLM response processed
+
+  /interviews/{id}/response:
+    post:
+      tags:
+        - Interviews
+      summary: Save interview response
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Response saved
+
+  /interviews/{id}/end:
+    post:
+      tags:
+        - Interviews
+      summary: End interview and trigger evaluation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: session_123
+      responses:
+        "200":
+          description: Interview ended, evaluation queued
+
+  /payments/stripe/payment-intent:
+    post:
+      tags:
+        - Payments
+      summary: Create payment intent (Stripe)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to make payment-intent creation idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount_cents:
+                  type: integer
+                  example: 500
+              required:
+                - amount_cents
+      responses:
+        "200":
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+                  idempotent_replay:
+                    type: boolean
+
+  /payments/methods:
+    post:
+      tags:
+        - Payments
+      summary: Add payment method (shared onboarding)
+      description: Add a new payment method using either Stripe card details or Solana wallet details.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method_type:
+                  type: string
+                  enum: ["card", "solana_wallet"]
+                  description: Type of payment method to add
+                card_payment_method_id:
+                  type: string
+                  description: Stripe payment method ID (required for method_type=card)
+                wallet_address:
+                  type: string
+                  description: Solana wallet address (required for method_type=solana_wallet)
+                network:
+                  type: string
+                  enum: ["mainnet", "devnet", "testnet"]
+                  description: Solana network (required for method_type=solana_wallet)
+                program_id:
+                  type: string
+                  description: Optional Solana program ID (for method_type=solana_wallet)
+              required:
+                - method_type
+            examples:
+              card:
+                value:
+                  method_type: "card"
+                  card_payment_method_id: "pm_1234567890"
+              solana_wallet:
+                value:
+                  method_type: "solana_wallet"
+                  wallet_address: "8RCRCxFzKk5Sy1EXMfUE6mJsb3YiVG1jCQ8h1T9oCauA"
+                  network: "mainnet"
+      responses:
+        "200":
+          description: Payment method added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment_method:
+                    $ref: "#/components/schemas/PaymentMethod"
+        "400":
+          description: Invalid request or missing required fields
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal server error
+
+  /payments/stripe/methods:
+    get:
+      tags:
+        - Payments
+      summary: Get available payment methods (Stripe)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Available payment methods (Stripe cards)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment_methods:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentMethod"
+                  default_payment_method:
+                    type: string
+
+  /payments/stripe/force-charging:
+    post:
+      tags:
+        - Payments
+      summary: Force charge overdue penalties (Stripe)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to dedupe force-charging batches.
+      responses:
+        "200":
+          description: Penalties charged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  reconciled_settlements:
+                    type: integer
+
+  /payments/stripe/methods/select-default:
+    post:
+      tags:
+        - Payments
+      summary: Select default payment method (Stripe)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to dedupe default payment-method selection and follow-up charge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment_method_id:
+                  type: string
+                  description: Payment method ID to set as default
+              required:
+                - payment_method_id
+      responses:
+        "200":
+          description: Default payment method updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  default_payment_method:
+                    type: string
+
+  /ping:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      responses:
+        "200":
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: pong
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: user_789ghi
+        username:
+          type: string
+          example: johndoe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        avatar:
+          type: string
+          nullable: true
+          example: https://example.com/avatar.jpg
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-26T00:00:00Z"
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+          description: JWT token
+        grind:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Grind"
+        grinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/Grind"
+
+    CreateGrindRequest:
+      type: object
+      properties:
+        duration:
+          type: integer
+          description: Duration in days
+          example: 30
+        budget:
+          type: integer
+          description: Budget in dollars
+          example: 100
+        habitType:
+          type: string
+          enum:
+            - coding_practice
+            - language_learning
+            - wellness
+            - productivity
+          example: coding_practice
+        startDate:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            type: string
+            format: email
+      required:
+        - duration
+        - budget
+        - startDate
+
+    Grind:
+      type: object
+      properties:
+        id:
+          type: string
+          example: grind_123abc
+        duration:
+          type: integer
+          example: 30
+        budget:
+          type: integer
+          example: 100
+        habitType:
+          type: string
+          example: coding_practice
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-03-26T00:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-26T00:00:00Z"
+
+    GrindWithTodayTask:
+      allOf:
+        - $ref: "#/components/schemas/Grind"
+        - type: object
+          properties:
+            taskToday:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/Task"
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          example: task_456def
+        grindId:
+          type: string
+          example: grind_123abc
+        userId:
+          type: string
+          example: user_789ghi
+        habitType:
+          type: string
+          example: coding_practice
+        dueDate:
+          type: string
+          format: date-time
+          example: "2026-03-27T00:00:00Z"
+        completed:
+          type: boolean
+          example: false
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        problemTitle:
+          type: string
+          nullable: true
+          example: null
+        problemUrl:
+          type: string
+          nullable: true
+          example: null
+        code:
+          type: string
+          nullable: true
+          example: null
+        codeLanguage:
+          type: string
+          nullable: true
+          example: null
+
+    TaskProgress:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        completed:
+          type: integer
+        total:
+          type: integer
+        streak:
+          type: integer
+
+    CompletionEventIngest:
+      type: object
+      properties:
+        eventId:
+          type: string
+          description: Idempotency key (unique per provider + user)
+        provider:
+          type: string
+          enum:
+            - leetcode
+            - duolingo
+            - manual
+        habitType:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        evidenceType:
+          type: string
+          enum:
+            - api
+            - webhook
+            - extension
+            - manual
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        externalReference:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - eventId
+        - provider
+        - habitType
+        - completedAt
+        - evidenceType
+
+    CompletionEvent:
+      allOf:
+        - $ref: "#/components/schemas/CompletionEventIngest"
+        - type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        type:
+          type: string
+          enum:
+            - invitation
+            - invitation_accepted
+            - invitation_rejected
+        content:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    PaymentMethod:
+      oneOf:
+        - $ref: "#/components/schemas/CardPaymentMethod"
+        - $ref: "#/components/schemas/OnChainPaymentMethod"
+      discriminator:
+        propertyName: methodType
+        mapping:
+          card: "#/components/schemas/CardPaymentMethod"
+          on_chain: "#/components/schemas/OnChainPaymentMethod"
+
+    CardPaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        provider:
+          type: string
+          example: stripe
+        methodType:
+          type: string
+          enum: [card]
+          example: card
+        providerCustomerId:
+          type: string
+        providerPaymentMethodId:
+          type: string
+        lastFourDigits:
+          type: string
+        brand:
+          type: string
+        expMonth:
+          type: integer
+        expYear:
+          type: integer
+        isDefault:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+              - charge
+              - settle_onchain
+              - refund
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - provider
+        - methodType
+
+    OnChainPaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        provider:
+          type: string
+          example: solana
+        methodType:
+          type: string
+          enum: [on_chain]
+          example: on_chain
+        network:
+          type: string
+          example: devnet
+        walletAddress:
+          type: string
+        contractAddress:
+          type: string
+        settlementProof:
+          type: string
+        isDefault:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+              - charge
+              - settle_onchain
+              - refund
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - provider
+        - methodType
+
+    SettlementStatus:
+      type: string
+      enum:
+        - pending
+        - authorized
+        - captured
+        - failed
+        - refunded
+        - settled_onchain
+
+    SettlementReference:
+      type: object
+      properties:
+        providerReference:
+          type: string
+        network:
+          type: string
+        txHash:
+          type: string
+        contractAddress:
+          type: string
+        settlementProof:
+          type: string
+        finalizedAt:
+          type: string
+          format: date-time
+
+    PaymentSettlement:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentMethodId:
+          type: string
+        provider:
+          type: string
+        status:
+          $ref: "#/components/schemas/SettlementStatus"
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          example: usd
+        reference:
+          $ref: "#/components/schemas/SettlementReference"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - status
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorCode:
+                type: string

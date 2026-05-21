@@ -1,0 +1,42 @@
+services:
+  terriyaki-db-test:
+    image: postgres:15
+    container_name: terriyaki-db-test
+    restart: always
+    env_file:
+      - ../.env
+    environment:
+      - POSTGRES_HOST=terriyaki-db-test
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=terriyaki-test
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  terriyaki-go-test:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile
+    container_name: terriyaki-go-test
+    command: [ "go", "test", "./tests/integration/...", "-v" ]
+    volumes:
+      - ../.:/src
+    env_file:
+      - ../.env
+    environment:
+      - TEST_POSTGRES_HOST=terriyaki-db-test
+      - TEST_POSTGRES_PORT=5432
+      - TEST_POSTGRES_USER=postgres
+      - TEST_POSTGRES_PASSWORD=postgres
+      - TEST_POSTGRES_DB=terriyaki-test
+    depends_on:
+      terriyaki-db-test:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"

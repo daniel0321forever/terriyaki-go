@@ -1,4 +1,5 @@
 # Terriyaki Backend
+[![CI](https://github.com/daniel0321forever/terriyaki-go/actions/workflows/ci.yml/badge.svg)](https://github.com/daniel0321forever/terriyaki-go/actions/workflows/ci.yml)
 
 Go backend service for the Terriyaki application.
 

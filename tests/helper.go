@@ -250,7 +250,9 @@ func BearerToken() string {
 
 	_, writer := MakeRequest("POST", "/api/v1/login", user, "")
 	var response map[string]string
-	json.Unmarshal(writer.Body.Bytes(), &response)
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		return ""
+	}
 	return response["token"]
 }
 

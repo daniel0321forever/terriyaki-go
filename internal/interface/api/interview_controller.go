@@ -148,7 +148,7 @@ func formatConversationHistory(history []map[string]interface{}) string {
 		}
 		role := msg["role"].(string)
 		message := msg["message"].(string)
-		formatted.WriteString(fmt.Sprintf("%s: %s", role, message))
+		fmt.Fprintf(&formatted, "%s: %s", role, message)
 	}
 	return formatted.String()
 }

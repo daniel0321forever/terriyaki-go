@@ -115,8 +115,6 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 	}
 
 	// send invitation messages to all participants
-	// FIXME: not supposed to have entities exposed in controller level
-	var participantUsers []*dto.UserDTO
 	for _, participantEmail := range participantEmails {
 		// skip if the participant is the same as the user
 		if participantEmail == userDTO.Email {
@@ -127,12 +125,13 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 			Email: participantEmail,
 		}
 		participantUser, err := ctrl.userService.GetUserByEmail(getUserDTO)
-		participantUsers = append(participantUsers, participantUser)
 		if err != nil {
 			deleteGrindDTO := dto.DeleteGrindDTO{
 				GrindID: userDTO.ID,
 			}
-			ctrl.grindService.DeleteGrind(deleteGrindDTO)
+			if delErr := ctrl.grindService.DeleteGrind(deleteGrindDTO); delErr != nil {
+				fmt.Println(delErr)
+			}
 
 			RespondNotFound(c, "Participant "+participantEmail+" not found")
 			return
@@ -149,6 +148,8 @@ func (ctrl *GrindController) CreateGrindAPI(c *gin.Context) {
 			continue // skip if the invitation message is not created
 		}
 	}
+
+	// TODO: it seems that we are not really sending the message
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Grind created successfully",

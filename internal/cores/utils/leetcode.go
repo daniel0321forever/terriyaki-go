@@ -81,7 +81,7 @@ func LoadExternalProblemList(listName string) ([]LeetCodeProblem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s.csv: %w", listName, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
@@ -489,6 +489,9 @@ func cleanHTMLText(text string) string {
 
 func renderNode(n *html.Node) string {
 	var buf strings.Builder
-	html.Render(&buf, n)
+	if err := html.Render(&buf, n); err != nil {
+		// best-effort rendering; if it fails, return what we have
+		return buf.String()
+	}
 	return buf.String()
 }

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -32,8 +32,10 @@ func httpPostJSON(t *testing.T, url string, body interface{}, headers map[string
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	if err := resp.Body.Close(); err != nil {
+		t.Logf("warning: failed to close response body: %v", err)
+	}
 	return resp, bodyBytes
 }
 

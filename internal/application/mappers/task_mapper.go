@@ -12,7 +12,10 @@ import (
 func BuildTaskDTO(task *entities.Task) *dto.TaskDTO {
 	var topicTags interface{}
 	if task.ProblemTopicTags != nil {
-		json.Unmarshal(task.ProblemTopicTags, &topicTags)
+		if err := json.Unmarshal(task.ProblemTopicTags, &topicTags); err != nil {
+			// If unmarshalling fails, leave topicTags as nil
+			topicTags = nil
+		}
 	}
 
 	return &dto.TaskDTO{

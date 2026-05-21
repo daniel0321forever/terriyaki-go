@@ -48,7 +48,7 @@ func (s *ElevenLabsService) TextToSpeech(voiceID string, text string) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -82,7 +82,9 @@ func (s *ElevenLabsService) SpeechToText(audioData []byte) (string, error) {
 		return "", fmt.Errorf("failed to write audio data: %w", err)
 	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize multipart writer: %w", err)
+	}
 
 	req, err := http.NewRequest("POST", url, &buf)
 	if err != nil {
@@ -96,7 +98,7 @@ func (s *ElevenLabsService) SpeechToText(audioData []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

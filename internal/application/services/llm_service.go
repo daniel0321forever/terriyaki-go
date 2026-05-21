@@ -19,7 +19,9 @@ func NewGeminiService(apiKey string) *GeminiService {
 	// Set API key as environment variable or pass it directly
 	// The SDK reads from GEMINI_API_KEY env var by default
 	if apiKey != "" {
-		os.Setenv("GEMINI_API_KEY", apiKey)
+		if err := os.Setenv("GEMINI_API_KEY", apiKey); err != nil {
+			panic(fmt.Sprintf("failed to set GEMINI_API_KEY: %v", err))
+		}
 	}
 
 	client, err := genai.NewClient(ctx, nil)

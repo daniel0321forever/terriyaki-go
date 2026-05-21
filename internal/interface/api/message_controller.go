@@ -63,9 +63,7 @@ func (ctrl *MessageController) GetMessageAPI(c *gin.Context) {
 
 	// Build response with related data
 	responseData := []*dto.MessageDTO{}
-	for _, messageDTO := range messageDTOs {
-		responseData = append(responseData, messageDTO)
-	}
+	responseData = append(responseData, messageDTOs...)
 
 	c.JSON(http.StatusOK, responseData)
 }

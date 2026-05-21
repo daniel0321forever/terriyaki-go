@@ -12,7 +12,10 @@ func BuildInterviewSessionDTO(session *entities.InterviewSession) *dto.Interview
 	var conversationHistory interface{}
 	if session.ConversationHistory != nil {
 		// datatypes.JSON is a type alias for []byte, so we can unmarshal it directly
-		json.Unmarshal(session.ConversationHistory, &conversationHistory)
+		if err := json.Unmarshal(session.ConversationHistory, &conversationHistory); err != nil {
+			// If unmarshalling fails, leave conversationHistory as nil
+			conversationHistory = nil
+		}
 	}
 
 	return &dto.InterviewSessionDTO{

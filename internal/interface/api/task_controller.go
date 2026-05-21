@@ -141,7 +141,11 @@ func (ctrl *TaskController) FinishTodayTaskAPI(c *gin.Context) {
 		Code:         code,
 		CodeLanguage: codeLanguage,
 	}
-	ctrl.taskService.FinishTask(updateTaskDTO)
+	if err := ctrl.taskService.FinishTask(updateTaskDTO); err != nil {
+		fmt.Println(err)
+		RespondInternalServerError(c, "failed to finish task")
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Task updated successfully",

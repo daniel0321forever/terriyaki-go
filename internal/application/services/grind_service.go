@@ -68,6 +68,9 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 
 	// 3. Setup Creator and create all tasks for the creator (The person who made the API call)
 	participation, err := entities.NewParticipation(request.CreatorID, grind.ID)
+	if err != nil {
+		return nil, err
+	}
 	_ = s.participationRepo.Create(participation)
 
 	// assign participants
@@ -78,7 +81,7 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 	grind.Participants = []entities.User{*creator}
 
 	// create tasks
-	var tasks []entities.Task = make([]entities.Task, 0, request.Duration)
+	var tasks = make([]entities.Task, 0, request.Duration)
 	for i := 0; i < request.Duration; i++ {
 		task, err := entities.NewTask(request.CreatorID, grind.ID, request.StartDate.AddDate(0, 0, i))
 		if err != nil {
@@ -97,7 +100,9 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 		topicTagsJSON, _ := json.Marshal(problem.TopicTags)
 		task.ProblemTopicTags = datatypes.JSON(topicTagsJSON)
 
-		s.taskRepo.Create(task)
+		if err := s.taskRepo.Create(task); err != nil {
+			return nil, err
+		}
 		tasks = append(tasks, *task)
 	}
 	grind.Tasks = tasks

@@ -1,10 +1,11 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Habitat Platform API
   description: Multi-habit accountability platform with LeetCode, Duolingo, and custom integrations
   version: 1.0.0
   license:
     name: MIT
+    url: https://opensource.org/licenses/MIT
 
 servers:
   - url: http://localhost:8080/api/v1
@@ -310,6 +311,34 @@ paths:
       responses:
         "200":
           description: Grind quit successfully
+
+  /grinds/{id}/quit:
+    post:
+      tags:
+        - Grinds
+      summary: Quit grind (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: grind_123
+      responses:
+        "200":
+          description: Grind quitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Grind quitted successfully
+                  participation:
+                    $ref: "#/components/schemas/Participation"
 
   /grinds/{grindId}/progress:
     get:
@@ -866,6 +895,32 @@ components:
       scheme: bearer
 
   schemas:
+    Participation:
+      type: object
+      properties:
+        id:
+          type: string
+        userID:
+          type: string
+        grindID:
+          type: string
+        missedDays:
+          type: integer
+        totalPenalty:
+          type: integer
+        quitted:
+          type: boolean
+        quittedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - userID
+        - grindID
+        - missedDays
+        - totalPenalty
+        - quitted
+
     User:
       type: object
       properties:

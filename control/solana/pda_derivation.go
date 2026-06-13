@@ -1,10 +1,9 @@
 package solana
 
 import (
-	"crypto/sha256"
 	"fmt"
 
-	"filippo.io/edwards25519"
+	solanaGo "github.com/gagliardetto/solana-go"
 )
 
 // ==============================================================================
@@ -32,73 +31,27 @@ import (
 //	vaultAddress: [32]byte Pubkey of the PDA (deterministic for this input set)
 //	bump: u8 nonce that makes the address valid on-curve (0-255 range)
 //	err: non-nil if serialization fails
+//
+// func DerivePledgePDA(pledgeID string, userPubkey [32]byte, programID [32]byte) ([32]byte, uint8, error)
 func DerivePledgePDA(pledgeID string, userPubkey [32]byte, programID [32]byte) ([32]byte, uint8, error) {
-	// Step 1: Build the seeds array exactly as Rust does.
-	//         Seeds are serialized as [&[u8]; 3] in Solana.
-	//         ORDER MATTERS: ["pledge", userPubkey, pledgeID]
+	// Build the seeds array exactly as Rust/Solana expects.
+	// Seeds: ["pledge", userPubkey, pledgeID]
+	seedPrefix := []byte("pledge")
+	seedUser := userPubkey[:]
+	seedPledge := []byte(pledgeID)
 
-	seedPrefix := []byte("pledge") // First seed: literal bytes
-	seedUser := userPubkey[:]      // Second seed: pubkey as 32 bytes
-	seedPledge := []byte(pledgeID) // Third seed: pledge_id as UTF-8 bytes
-
-	// Step 2: Attempt to find a valid PDA using bump iteration (standard Solana method).
-	//         Start from bump=255 (highest nonce) and decrement until address is off-curve.
-
-	for bump := uint8(255); ; bump-- {
-		// Construct seeds with the current bump
-		seeds := [][]byte{
-			seedPrefix,
-			seedUser,
-			seedPledge,
-			{bump}, // Bump added as a single-byte seed
-		}
-
-		// Hash the seeds with program ID to compute candidate address
-		address, isValid := publishKeyAndBump(seeds, programID)
-
-		if isValid {
-			// Found a valid PDA (off-curve)
-			return address, bump, nil
-		}
-
-		// Decrement bump and try again
-		if bump == 0 {
-			// Exhausted bump range; should not happen in practice
-			return [32]byte{}, 0, fmt.Errorf("failed to find valid PDA for seeds after 256 attempts")
-		}
-	}
-}
-
-// publishKeyAndBump mimics Solana's find_program_address algorithm.
-// Hashes (seeds ++ [bump] || program_id) and checks if result is a valid ed25519 point.
-// If not on the curve, returns the address and true (PDA found).
-// If on the curve, returns zeros and false (invalid bump, try next).
-func publishKeyAndBump(seeds [][]byte, programID [32]byte) ([32]byte, bool) {
-	// Concatenate all seeds + [bump] + program ID
-	h := sha256.New()
-	for _, seed := range seeds {
-		h.Write(seed)
-	}
-	h.Write(programID[:])
-
-	result := h.Sum(nil)
-	if len(result) != 32 {
-		return [32]byte{}, false
+	seeds := [][]byte{
+		seedPrefix,
+		seedUser,
+		seedPledge,
 	}
 
-	address := *(*[32]byte)(result)
-	// Check if address is a valid Curve25519 point (on-curve).
-	// Solana uses ed25519; a point is on-curve if it satisfies the curve equation.
-	// For PDA purposes, we want a NON-CURVE point.
-
-	_, err := new(edwards25519.Point).SetBytes(address[:])
-	if err == nil {
-		// Point is on the curve → invalid PDA, try next bump
-		return [32]byte{}, false
+	pda, bump, err := solanaGo.FindProgramAddress(seeds, solanaGo.PublicKey(programID))
+	if err != nil {
+		return [32]byte{}, 0, fmt.Errorf("failed to find valid PDA: %w", err)
 	}
 
-	// Point is off the curve → valid PDA
-	return address, true
+	return [32]byte(pda), bump, nil
 }
 
 // VerifyPDADerivation checks that a claimed PDA address is correct for the given seeds.

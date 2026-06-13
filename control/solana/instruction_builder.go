@@ -100,6 +100,7 @@ func ResolveSuccessInstruction(
 	oraclePubkey [32]byte,
 	pledgePDA [32]byte,
 	userAccount [32]byte,
+	penaltyPool [32]byte,
 	systemProgram [32]byte,
 	programID [32]byte,
 ) (*sdk.TransactionInstruction, error) {
@@ -122,11 +123,13 @@ func ResolveSuccessInstruction(
 	//         [1] pledge (writable)
 	//         [2] user (writable)
 	//         [3] system_program (read-only)
+	//         [4] penalty_pool (writable)
 	accounts := []sdk.AccountMeta{
 		{Pubkey: oraclePubkey, IsSigner: true, IsWritable: false},
 		{Pubkey: pledgePDA, IsSigner: false, IsWritable: true},
 		{Pubkey: userAccount, IsSigner: false, IsWritable: true},
 		{Pubkey: systemProgram, IsSigner: false, IsWritable: false},
+		{Pubkey: penaltyPool, IsSigner: false, IsWritable: true},
 	}
 
 	returned := &sdk.TransactionInstruction{
@@ -149,6 +152,7 @@ func ResolveSuccessInstruction(
 //	args: ResolveFailureArgs with tx_hash and finalized_at
 //	oraclePubkey: oracle signer
 //	pledgePDA: the PDA holding escrow
+//	userAccount: the user account
 //	penaltyPool: destination for penalty transfer
 //	systemProgram: system program for CPI transfer
 //	programID: the Solana program's address
@@ -161,6 +165,7 @@ func ResolveFailureInstruction(
 	args abi.ResolveFailureArgs,
 	oraclePubkey [32]byte,
 	pledgePDA [32]byte,
+	userAccount [32]byte,
 	penaltyPool [32]byte,
 	systemProgram [32]byte,
 	programID [32]byte,
@@ -179,8 +184,9 @@ func ResolveFailureInstruction(
 	accounts := []sdk.AccountMeta{
 		{Pubkey: oraclePubkey, IsSigner: true, IsWritable: false},
 		{Pubkey: pledgePDA, IsSigner: false, IsWritable: true},
-		{Pubkey: penaltyPool, IsSigner: false, IsWritable: true},
+		{Pubkey: userAccount, IsSigner: false, IsWritable: true},
 		{Pubkey: systemProgram, IsSigner: false, IsWritable: false},
+		{Pubkey: penaltyPool, IsSigner: false, IsWritable: true},
 	}
 
 	returned := &sdk.TransactionInstruction{
@@ -267,7 +273,7 @@ func AnchorDiscriminator(discriminatorName string) []byte {
 //	escrow_amount: u64 (little-endian)
 //	deadline_timestamp: i64 (little-endian)
 func serializeInitializePledgeArgs(args *abi.InitializePledgeArgs) ([]byte, error) {
-	serielized, err := borsh.Serialize(args)
+	serielized, err := borsh.Serialize(*args)
 	if err != nil {
 		return nil, fmt.Errorf("borsh serialize: %w", err)
 	}
@@ -276,7 +282,7 @@ func serializeInitializePledgeArgs(args *abi.InitializePledgeArgs) ([]byte, erro
 
 func serializeResolveSuccessArgs(args *abi.ResolveSuccessArgs) ([]byte, error) {
 	// Fields: tx_hash (String), finalized_at (i64)
-	serielized, err := borsh.Serialize(args)
+	serielized, err := borsh.Serialize(*args)
 	if err != nil {
 		return nil, fmt.Errorf("borsh serialize: %w", err)
 	}
@@ -285,7 +291,7 @@ func serializeResolveSuccessArgs(args *abi.ResolveSuccessArgs) ([]byte, error) {
 
 func serializeResolveFailureArgs(args *abi.ResolveFailureArgs) ([]byte, error) {
 	// Fields: tx_hash (String), finalized_at (i64)
-	serielized, err := borsh.Serialize(args)
+	serielized, err := borsh.Serialize(*args)
 	if err != nil {
 		return nil, fmt.Errorf("borsh serialize: %w", err)
 	}
@@ -294,7 +300,7 @@ func serializeResolveFailureArgs(args *abi.ResolveFailureArgs) ([]byte, error) {
 
 func serializeClaimTimeoutArgs(args *abi.ClaimTimeoutArgs) ([]byte, error) {
 	// Fields: tx_hash (String), finalized_at (i64)
-	serielized, err := borsh.Serialize(args)
+	serielized, err := borsh.Serialize(*args)
 	if err != nil {
 		return nil, fmt.Errorf("borsh serialize: %w", err)
 	}

@@ -31,46 +31,59 @@ var providerRegistry = map[entities.PaymentProvider]PaymentProviderDefinition{
 	entities.PaymentProviderSolana: {
 		MethodTypes: []string{"solana_wallet"},
 		BuildAdapter: func() PaymentGatewayAdapter {
-			adapter, err := buildValidatedSolanaPaymentGatewayAdapter()
+			rpcEndpoint, programID, oraclePubkey, oraclePrivateKey, err := LoadSolanaConfigFromEnv()
 			if err != nil {
 				return nil
 			}
-			return adapter
+
+			var programIDArr [32]byte
+			copy(programIDArr[:], programID.Bytes())
+			var oraclePubkeyArr [32]byte
+			copy(oraclePubkeyArr[:], oraclePubkey.Bytes())
+			var oraclePrivateKeyArr [64]byte
+			copy(oraclePrivateKeyArr[:], []byte(oraclePrivateKey))
+
+			return NewSolanaPaymentGatewayAdapter(rpcEndpoint, programIDArr, oraclePubkeyArr, oraclePrivateKeyArr)
 		},
 	},
 }
 
-func buildValidatedSolanaPaymentGatewayAdapter() (*SolanaPaymentGatewayAdapter, error) {
+// LoadSolanaConfigFromEnv reads and validates Solana-related environment variables
+// and returns parsed values suitable for adapter construction. Exported to allow
+// tests and other callers to reuse the same parsing/validation logic.
+func LoadSolanaConfigFromEnv() (string, solanaGo.PublicKey, solanaGo.PublicKey, solanaGo.PrivateKey, error) {
 	rpcEndpoint := os.Getenv(config.SOLANA_RPC_ENDPOINT)
 	programIDStr := os.Getenv(config.SOLANA_PROGRAM_ID)
 	oraclePubkeyStr := os.Getenv(config.SOLANA_ORACLE_PUBKEY)
 	oraclePrivateKeyStr := os.Getenv(config.SOLANA_ORACLE_PRIVATE_KEY)
 
 	if rpcEndpoint == "" {
-		return nil, fmt.Errorf("solana RPC endpoint is required")
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("solana RPC endpoint is required")
+	}
+	if programIDStr == "" {
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("solana program id is required")
+	}
+	if oraclePubkeyStr == "" {
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("solana oracle pubkey is required")
+	}
+	if oraclePrivateKeyStr == "" {
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("solana oracle private key is required")
 	}
 
 	programID, err := solanaGo.PublicKeyFromBase58(programIDStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid solana program id: %w", err)
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("invalid solana program id: %w", err)
 	}
 	oraclePubkey, err := solanaGo.PublicKeyFromBase58(oraclePubkeyStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid solana oracle pubkey: %w", err)
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("invalid solana oracle pubkey: %w", err)
 	}
 	oraclePrivateKey, err := solanaGo.PrivateKeyFromBase58(oraclePrivateKeyStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid solana oracle private key: %w", err)
+		return "", solanaGo.PublicKey{}, solanaGo.PublicKey{}, nil, fmt.Errorf("invalid solana oracle private key: %w", err)
 	}
 
-	var programIDArr [32]byte
-	copy(programIDArr[:], programID.Bytes())
-	var oraclePubkeyArr [32]byte
-	copy(oraclePubkeyArr[:], oraclePubkey.Bytes())
-	var oraclePrivateKeyArr [64]byte
-	copy(oraclePrivateKeyArr[:], []byte(oraclePrivateKey))
-
-	return NewSolanaPaymentGatewayAdapter(rpcEndpoint, programIDArr, oraclePubkeyArr, oraclePrivateKeyArr), nil
+	return rpcEndpoint, programID, oraclePubkey, oraclePrivateKey, nil
 }
 
 // PaymentServiceFactory encapsulates PaymentService wiring so route registration

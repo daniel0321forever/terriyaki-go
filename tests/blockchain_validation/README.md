@@ -28,10 +28,10 @@ Before running these tests, ensure the following are available on your machine:
 
 ```bash
 # From backend/ directory, run all Solana tests
-make test-solana
+make test-blockchain-validation
 
 # Or with additional logging
-make test-solana 2>&1 | tee solana-test.log
+make test-blockchain-validation 2>&1 | tee solana-test.log
 ```
 
 ### Option 2: Using Go directly
@@ -41,7 +41,7 @@ make test-solana 2>&1 | tee solana-test.log
 go test -v -race ./tests/blockchain_validation/...
 
 # Or run a specific test
-go test -v -run TestSolanaE2E ./tests/blockchain_validation/...
+ORACLE_KEY="$(go run tools/keypair_to_base58.go ~/.config/solana/id.json)" && ORACLE_PUBKEY="$(solana-keygen pubkey ~/.config/solana/id.json)" && echo "Oracle pubkey: $ORACLE_PUBKEY" && solana airdrop 2 "$ORACLE_PUBKEY" --url http://127.0.0.1:8899 2>&1 && SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899 SOLANA_PROGRAM_ID=BgNjXioQqVNNihH4QCtjthDKAynZLVDixArQgmY7oRM4 SOLANA_ORACLE_PUBKEY="$ORACLE_PUBKEY" SOLANA_ORACLE_PRIVATE_KEY="$ORACLE_KEY" go test -v -run TestSolanaE2E ./tests/blockchain_validation/...
 ```
 
 ## What These Tests Validate

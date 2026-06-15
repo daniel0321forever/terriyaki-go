@@ -24,7 +24,9 @@ test-e2e:
 
 # Run blockchain validation tests (requires: solana-cli, validator running on http://127.0.0.1:8899)
 test-blockchain-validation:
-	go test -v -race ./tests/blockchain_validation/...
+	bash -c "source scripts/setup_solana_env.sh && \
+		solana airdrop 2 \$$SOLANA_ORACLE_PUBKEY --url http://127.0.0.1:8899 && \
+		go test -v -run TestSolanaE2E ./tests/blockchain_validation/..."
 
 # Generate coverage report
 test-coverage: test-unit

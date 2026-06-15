@@ -48,10 +48,12 @@ type SignedTransaction struct {
 //	SignedTransaction with bytes and signature ready to broadcast
 //	err: non-nil if signing fails
 func SignResolveSuccessTransaction(
+	recentBlockhash solana.Hash,
 	oraclePubkey [32]byte,
 	oraclePrivateKey [64]byte,
 	pledgePDA [32]byte,
 	userAccount [32]byte,
+	penaltyPool [32]byte,
 	txHash string,
 	finalizedAt int64,
 	systemProgramID [32]byte,
@@ -68,6 +70,7 @@ func SignResolveSuccessTransaction(
 		oraclePubkey,
 		pledgePDA,
 		userAccount,
+		penaltyPool,
 		systemProgramID,
 		habitProgramID,
 	)
@@ -76,9 +79,7 @@ func SignResolveSuccessTransaction(
 	}
 
 	// Step 2: Build transaction message with oracle as signer and feepayer.
-	//         Account order: [oracle, pledge, user, system_program]
-	var recentBlockhash solana.Hash // TODO: fetch from RPC
-
+	//         Account order: [oracle, pledge, user, system_program, penalty_pool]
 	accountMetaSlice := solana.AccountMetaSlice{}
 	for _, meta := range instr.Accounts {
 		accountMetaSlice = append(accountMetaSlice, &solana.AccountMeta{
@@ -134,9 +135,11 @@ func SignResolveSuccessTransaction(
 //
 // Arguments:
 //
+//	recentBlockhash: recent blockhash from RPC
 //	oraclePubkey: [32]byte oracle pubkey
 //	oraclePrivateKey: [64]byte oracle keypair
 //	pledgePDA: [32]byte pledge account address
+//	userAccount: [32]byte user wallet address
 //	penaltyPool: [32]byte destination for failed pledge escrow
 //	txHash: off-chain transaction ID
 //	finalizedAt: unix seconds
@@ -148,9 +151,11 @@ func SignResolveSuccessTransaction(
 //	SignedTransaction with bytes and signature ready to broadcast
 //	err: non-nil if signing fails
 func SignResolveFailureTransaction(
+	recentBlockhash solana.Hash,
 	oraclePubkey [32]byte,
 	oraclePrivateKey [64]byte,
 	pledgePDA [32]byte,
+	userAccount [32]byte,
 	penaltyPool [32]byte,
 	txHash string,
 	finalizedAt int64,
@@ -167,6 +172,7 @@ func SignResolveFailureTransaction(
 		args,
 		oraclePubkey,
 		pledgePDA,
+		userAccount,
 		penaltyPool,
 		systemProgramID,
 		habitProgramID,
@@ -176,9 +182,7 @@ func SignResolveFailureTransaction(
 	}
 
 	// Step 2: Build transaction message with oracle as signer and feepayer.
-	//         Account order: [oracle, pledge, penalty_pool, system_program]
-	var recentBlockhash solana.Hash // TODO: fetch from RPC
-
+	//         Account order: [oracle, pledge, user, system_program, penalty_pool]
 	accountMetaSlice := solana.AccountMetaSlice{}
 	for _, meta := range instr.Accounts {
 		accountMetaSlice = append(accountMetaSlice, &solana.AccountMeta{

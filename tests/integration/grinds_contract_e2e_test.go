@@ -144,3 +144,22 @@ func TestGrindByIDSuccess(t *testing.T) {
 
 	testharness.ValidateOpenAPIContract(t, request, writer)
 }
+
+func TestV2QuitGrindE2E(t *testing.T) {
+	token, userID := registerGrindTestUser(t)
+	createdGrindID := seedGrindData(t, userID)
+
+	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v2/grinds/"+createdGrindID+"/quit", nil, token)
+	assert.Equal(t, http.StatusOK, writer.Code)
+
+	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
+	assert.Equal(t, "Grind quitted successfully", resp["message"])
+
+	participation, ok := resp["participation"].(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, userID, participation["userID"])
+	assert.Equal(t, createdGrindID, participation["grindID"])
+	assert.True(t, participation["quitted"].(bool))
+
+	testharness.ValidateOpenAPIContract(t, request, writer)
+}

@@ -103,5 +103,6 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	{
 		v2.POST("login", userCtrl.LoginAPIV2)
 		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
+		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)
 	}
 }

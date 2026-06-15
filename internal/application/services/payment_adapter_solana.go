@@ -202,6 +202,14 @@ func (a *SolanaPaymentGatewayAdapter) ResolveSettlement(req_ SettlementResolutio
 	var pledgePDA [32]byte
 	copy(pledgePDA[:], pledgePubkey.Bytes())
 
+	// Fetch recent blockhash
+	rpcClient := rpc.New(a.rpcEndpoint)
+	rpcResult, err := rpcClient.GetLatestBlockhash(a.ctx, rpc.CommitmentFinalized)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch recent blockhash: %w", err)
+	}
+	recentBlockhash := rpcResult.Value.Blockhash
+
 	// Sign based on resolution type
 	var signedTx controlsolana.SignedTransaction
 	switch req.Resolution {
@@ -213,11 +221,24 @@ func (a *SolanaPaymentGatewayAdapter) ResolveSettlement(req_ SettlementResolutio
 		var userPub [32]byte
 		copy(userPub[:], userPubkey.Bytes())
 
+		var penaltyPool [32]byte
+		if req.PenaltyPoolKey != "" {
+			poolKey, err := solana.PublicKeyFromBase58(req.PenaltyPoolKey)
+			if err != nil {
+				return nil, fmt.Errorf("invalid penalty pool key: %w", err)
+			}
+			copy(penaltyPool[:], poolKey.Bytes())
+		} else {
+			copy(penaltyPool[:], userPub[:])
+		}
+
 		signed, signErr := controlsolana.SignResolveSuccessTransaction(
+			recentBlockhash,
 			a.oraclePubkey,
 			a.oraclePrivateKey,
 			pledgePDA,
 			userPub,
+			penaltyPool,
 			req.TxHashProof,
 			time.Now().Unix(),
 			systemProgram,
@@ -229,6 +250,13 @@ func (a *SolanaPaymentGatewayAdapter) ResolveSettlement(req_ SettlementResolutio
 		signedTx = signed
 
 	case "failure":
+		userPubkey, err := solana.PublicKeyFromBase58(req.UserPubkey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user pubkey: %w", err)
+		}
+		var userPub [32]byte
+		copy(userPub[:], userPubkey.Bytes())
+
 		penaltyPoolPubkey, err := solana.PublicKeyFromBase58(req.PenaltyPoolKey)
 		if err != nil {
 			return nil, fmt.Errorf("invalid penalty pool key: %w", err)
@@ -237,9 +265,11 @@ func (a *SolanaPaymentGatewayAdapter) ResolveSettlement(req_ SettlementResolutio
 		copy(penaltyPool[:], penaltyPoolPubkey.Bytes())
 
 		signed, signErr := controlsolana.SignResolveFailureTransaction(
+			recentBlockhash,
 			a.oraclePubkey,
 			a.oraclePrivateKey,
 			pledgePDA,
+			userPub,
 			penaltyPool,
 			req.TxHashProof,
 			time.Now().Unix(),

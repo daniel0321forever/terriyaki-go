@@ -8,7 +8,6 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
-	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"gorm.io/gorm"
 )
 
@@ -208,7 +207,7 @@ func (s *MessageService) RejectInvitationTx(
 	createReq dto.CreateInvitationRejectedMessageDTO,
 ) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		msgRepo := s.messageRepo.(*postgres.GormMessageRepository).WithTx(tx)
+		msgRepo := getMessageRepo(s.messageRepo, tx)
 
 		// Update original invitation message to rejected
 		msg, err := msgRepo.FindByID(updateReq.MessageID)

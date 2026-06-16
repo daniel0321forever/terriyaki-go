@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -31,7 +32,7 @@ func NewGormHabitTaskRepository(db *gorm.DB) *GormHabitTaskRepository {
 	return &GormHabitTaskRepository{db: db}
 }
 
-func (r *GormHabitTaskRepository) WithTx(tx *gorm.DB) *GormHabitTaskRepository {
+func (r *GormHabitTaskRepository) WithTx(tx *gorm.DB) repositories.HabitTaskRepository {
 	return &GormHabitTaskRepository{db: tx}
 }
 

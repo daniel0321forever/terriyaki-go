@@ -1,20 +1,21 @@
 //go:build integration
 // +build integration
 
-package postgres
+package postgres_test
 
 import (
 	"errors"
 	"testing"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"gorm.io/gorm"
 )
 
 func TestGormUserRepository_CreateAndFindByID(t *testing.T) {
 	resetRepoTables(t)
 
-	repo := NewGormUserRepository(Db)
+	repo := postgres.NewGormUserRepository(postgres.Db)
 	user, err := entities.NewUser("alice", "alice@example.com", "hashed-pass", "")
 	if err != nil {
 		t.Fatalf("failed to create user entity: %v", err)
@@ -45,7 +46,7 @@ func TestGormUserRepository_CreateAndFindByID(t *testing.T) {
 func TestGormUserRepository_FindByID_NotFound(t *testing.T) {
 	resetRepoTables(t)
 
-	repo := NewGormUserRepository(Db)
+	repo := postgres.NewGormUserRepository(postgres.Db)
 	_, err := repo.FindById("missing-id")
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("expected gorm.ErrRecordNotFound, got %v", err)

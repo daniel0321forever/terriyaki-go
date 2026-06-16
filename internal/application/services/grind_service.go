@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
@@ -41,7 +42,7 @@ func NewGrindService(
 func (s *GrindService) toGroupGrindDTO(grind *entities.Grind) (*dto.GroupGrindDTO, error) {
 	participants, err := s.userRepo.FindByGrindID(grind.ID)
 	if err != nil {
-		return nil, config.ErrUserNotFound
+		return nil, fmt.Errorf("fetching participants for grind %s: %w", grind.ID, err)
 	}
 	return mappers.BuildGroupGrindDTO(grind, participants), nil
 }

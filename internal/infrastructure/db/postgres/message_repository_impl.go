@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,7 @@ func NewGormMessageRepository(db *gorm.DB) *GormMessageRepository {
 	return &GormMessageRepository{db: db}
 }
 
-func (r *GormMessageRepository) WithTx(tx *gorm.DB) *GormMessageRepository {
+func (r *GormMessageRepository) WithTx(tx *gorm.DB) repositories.MessageRepository {
 	return &GormMessageRepository{db: tx}
 }
 

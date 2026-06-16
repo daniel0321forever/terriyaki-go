@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package postgres
+package postgres_test
 
 import (
 	"errors"
@@ -11,14 +11,17 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
+	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
+	"gorm.io/gorm"
 )
 
 func TestGormGrindRepository_FindLatestByUserID(t *testing.T) {
 	resetRepoTables(t)
 
-	userRepo := NewGormUserRepository(Db)
-	grindRepo := NewGormGrindRepository(Db)
-	participationRepo := NewGormParticipationRepository(Db)
+	userRepo := postgres.NewGormUserRepository(postgres.Db)
+	grindRepo := postgres.NewGormGrindRepository(postgres.Db)
+	participationRepo := postgres.NewGormParticipationRepository(postgres.Db)
 
 	user, err := entities.NewUser("bob", "bob@example.com", "hashed-pass", "")
 	if err != nil {
@@ -78,7 +81,7 @@ func TestGormGrindRepository_FindLatestByUserID(t *testing.T) {
 func TestCreateGroupGrindRollback(t *testing.T) {
 	resetRepoTables(t)
 
-	userRepo := NewGormUserRepository(Db)
+	userRepo := postgres.NewGormUserRepository(postgres.Db)
 
 	user, err := entities.NewUser("grindrollback", "grindrollback@example.com", "hashed-pass", "")
 	if err != nil {
@@ -90,17 +93,17 @@ func TestCreateGroupGrindRollback(t *testing.T) {
 
 	// Use a failing habitTaskRepo that fails immediately on the first Create call
 	failingHabitTaskRepo := &failAfterNHabitTaskRepo{
-		inner:      NewGormHabitTaskRepository(Db),
+		inner:      postgres.NewGormHabitTaskRepository(postgres.Db),
 		failAfterN: 0,
 	}
 
 	grindService := services.NewGrindService(
-		Db,
-		NewGormGrindRepository(Db),
+		postgres.Db,
+		postgres.NewGormGrindRepository(postgres.Db),
 		userRepo,
 		failingHabitTaskRepo,
-		NewGormParticipationRepository(Db),
-		NewGormMessageRepository(Db),
+		postgres.NewGormParticipationRepository(postgres.Db),
+		postgres.NewGormMessageRepository(postgres.Db),
 	)
 
 	startDate := time.Now().UTC()
@@ -116,21 +119,21 @@ func TestCreateGroupGrindRollback(t *testing.T) {
 
 	// Assert no grind rows remain
 	var grindCount int64
-	Db.Table("grinds").Count(&grindCount)
+	postgres.Db.Table("grinds").Count(&grindCount)
 	if grindCount != 0 {
 		t.Fatalf("expected 0 grind rows after rollback, got %d", grindCount)
 	}
 
 	// Assert no participation rows remain
 	var participationCount int64
-	Db.Table("participation").Count(&participationCount)
+	postgres.Db.Table("participation").Count(&participationCount)
 	if participationCount != 0 {
 		t.Fatalf("expected 0 participation rows after rollback, got %d", participationCount)
 	}
 
 	// Assert no habit_tasks rows remain
 	var habitTaskCount int64
-	Db.Table("habit_tasks").Count(&habitTaskCount)
+	postgres.Db.Table("habit_tasks").Count(&habitTaskCount)
 	if habitTaskCount != 0 {
 		t.Fatalf("expected 0 habit_task rows after rollback, got %d", habitTaskCount)
 	}
@@ -142,10 +145,10 @@ func TestCreateGroupGrindRollback(t *testing.T) {
 func TestDeleteGrindRollback(t *testing.T) {
 	resetRepoTables(t)
 
-	userRepo := NewGormUserRepository(Db)
-	grindRepo := NewGormGrindRepository(Db)
-	participationRepo := NewGormParticipationRepository(Db)
-	habitTaskRepo := NewGormHabitTaskRepository(Db)
+	userRepo := postgres.NewGormUserRepository(postgres.Db)
+	grindRepo := postgres.NewGormGrindRepository(postgres.Db)
+	participationRepo := postgres.NewGormParticipationRepository(postgres.Db)
+	habitTaskRepo := postgres.NewGormHabitTaskRepository(postgres.Db)
 
 	// Create a user and a grind with tasks
 	user, _ := entities.NewUser("deleterollback", "deleterollback@example.com", "hashed-pass", "")
@@ -174,7 +177,7 @@ func TestDeleteGrindRollback(t *testing.T) {
 
 	// Count habit_tasks before delete attempt
 	var beforeCount int64
-	Db.Table("habit_tasks").Where("grind_id = ?", grind.ID).Count(&beforeCount)
+	postgres.Db.Table("habit_tasks").Where("grind_id = ?", grind.ID).Count(&beforeCount)
 	if beforeCount != 2 {
 		t.Fatalf("expected 2 habit_task rows before delete, got %d", beforeCount)
 	}
@@ -183,12 +186,12 @@ func TestDeleteGrindRollback(t *testing.T) {
 	failingPartRepo := &failingParticipationRepo{inner: participationRepo}
 
 	grindService := services.NewGrindService(
-		Db,
+		postgres.Db,
 		grindRepo,
 		userRepo,
 		habitTaskRepo,
 		failingPartRepo,
-		NewGormMessageRepository(Db),
+		postgres.NewGormMessageRepository(postgres.Db),
 	)
 
 	err := grindService.DeleteGrind(dto.DeleteGrindDTO{GrindID: grind.ID})
@@ -198,7 +201,7 @@ func TestDeleteGrindRollback(t *testing.T) {
 
 	// Assert habit_task rows still exist (rollback worked)
 	var afterCount int64
-	Db.Table("habit_tasks").Where("grind_id = ?", grind.ID).Count(&afterCount)
+	postgres.Db.Table("habit_tasks").Where("grind_id = ?", grind.ID).Count(&afterCount)
 	if afterCount != 2 {
 		t.Fatalf("expected 2 habit_task rows after rollback, got %d", afterCount)
 	}
@@ -209,11 +212,11 @@ func TestDeleteGrindRollback(t *testing.T) {
 func TestAcceptInvitationRollback(t *testing.T) {
 	resetRepoTables(t)
 
-	userRepo := NewGormUserRepository(Db)
-	grindRepo := NewGormGrindRepository(Db)
-	participationRepo := NewGormParticipationRepository(Db)
-	habitTaskRepo := NewGormHabitTaskRepository(Db)
-	messageRepo := NewGormMessageRepository(Db)
+	userRepo := postgres.NewGormUserRepository(postgres.Db)
+	grindRepo := postgres.NewGormGrindRepository(postgres.Db)
+	participationRepo := postgres.NewGormParticipationRepository(postgres.Db)
+	habitTaskRepo := postgres.NewGormHabitTaskRepository(postgres.Db)
+	messageRepo := postgres.NewGormMessageRepository(postgres.Db)
 
 	// Create invitor and accepter users
 	invitor, _ := entities.NewUser("invitor", "invitor@example.com", "hashed-pass", "")
@@ -250,7 +253,7 @@ func TestAcceptInvitationRollback(t *testing.T) {
 
 	// Count participation before the accept attempt
 	var beforeCount int64
-	Db.Table("participation").Count(&beforeCount)
+	postgres.Db.Table("participation").Count(&beforeCount)
 	if beforeCount != 1 {
 		t.Fatalf("expected 1 participation row before accept, got %d", beforeCount)
 	}
@@ -259,12 +262,12 @@ func TestAcceptInvitationRollback(t *testing.T) {
 	failingMsgRepo := &failingMessageRepo{inner: messageRepo}
 
 	grindService := services.NewGrindService(
-		Db,
+		postgres.Db,
 		grindRepo,
 		userRepo,
 		habitTaskRepo,
 		participationRepo,
-		NewGormMessageRepository(Db),
+		postgres.NewGormMessageRepository(postgres.Db),
 	)
 
 	err := grindService.AcceptInvitation(
@@ -279,7 +282,7 @@ func TestAcceptInvitationRollback(t *testing.T) {
 
 	// Assert participation count is still 1 (accepter's row was rolled back)
 	var afterCount int64
-	Db.Table("participation").Count(&afterCount)
+	postgres.Db.Table("participation").Count(&afterCount)
 	if afterCount != 1 {
 		t.Fatalf("expected 1 participation row after rollback (only invitor), got %d", afterCount)
 	}
@@ -289,9 +292,17 @@ func TestAcceptInvitationRollback(t *testing.T) {
 
 // failAfterNHabitTaskRepo wraps GormHabitTaskRepository and fails on Create after N successful calls.
 type failAfterNHabitTaskRepo struct {
-	inner      *GormHabitTaskRepository
+	inner      *postgres.GormHabitTaskRepository
 	failAfterN int
 	callCount  int
+}
+
+func (r *failAfterNHabitTaskRepo) WithTx(tx *gorm.DB) repositories.HabitTaskRepository {
+	return &failAfterNHabitTaskRepo{
+		inner:      r.inner.WithTx(tx).(*postgres.GormHabitTaskRepository),
+		failAfterN: r.failAfterN,
+		callCount:  r.callCount,
+	}
 }
 
 func (r *failAfterNHabitTaskRepo) Create(task *entities.HabitTask) error {
@@ -328,7 +339,13 @@ func (r *failAfterNHabitTaskRepo) DeleteByGrindID(grindID string) error {
 
 // failingParticipationRepo always fails on DeleteByGrindID.
 type failingParticipationRepo struct {
-	inner *GormParticipationRepository
+	inner *postgres.GormParticipationRepository
+}
+
+func (r *failingParticipationRepo) WithTx(tx *gorm.DB) repositories.ParticipationRepository {
+	return &failingParticipationRepo{
+		inner: r.inner.WithTx(tx).(*postgres.GormParticipationRepository),
+	}
 }
 
 func (r *failingParticipationRepo) Create(p *entities.Participation) error {
@@ -353,7 +370,13 @@ func (r *failingParticipationRepo) DeleteByGrindID(grindID string) error {
 
 // failingMessageRepo always fails on Update.
 type failingMessageRepo struct {
-	inner *GormMessageRepository
+	inner *postgres.GormMessageRepository
+}
+
+func (r *failingMessageRepo) WithTx(tx *gorm.DB) repositories.MessageRepository {
+	return &failingMessageRepo{
+		inner: r.inner.WithTx(tx).(*postgres.GormMessageRepository),
+	}
 }
 
 func (r *failingMessageRepo) Create(m *entities.Message) error {

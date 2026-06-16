@@ -31,7 +31,7 @@ func TestRateLimitUnderLimit(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.RemoteAddr = "192.0.2.1:12345"
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -55,7 +55,7 @@ func TestRateLimitExceedsLimit(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.RemoteAddr = "192.0.2.1:12345"
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusTooManyRequests, w.Code)
@@ -79,7 +79,7 @@ func TestRateLimitWindowNotReset(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.RemoteAddr = "192.0.2.1:12345"
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -103,7 +103,7 @@ func TestRateLimitRedisError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Forwarded-For", "192.0.2.1")
+	req.RemoteAddr = "192.0.2.1:12345"
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

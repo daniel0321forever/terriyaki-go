@@ -1,9 +1,12 @@
 package api
 
 import (
+	"time"
+
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
+	"github.com/daniel0321forever/terriyaki-go/internal/interface/api/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -62,13 +65,17 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 	ingestCtrl := NewIngestController(ingestService)
 	partnerGroupCtrl := NewPartnerGroupController(partnerGroupService)
 
+	// Rate limit middleware: 10 requests per minute per IP (SEC-03)
+	// Fail-open: Redis error allows request through (T-03-06 mitigated).
+	rl := middleware.RateLimitMiddleware(rdb, 10, time.Minute)
+
 	// Health check on root router (unversioned, per D-04)
 	router.GET("/api/health", healthCtrl.HealthAPI)
 
 	v2 := router.Group("/api/v2")
 	{
-		// Auth routes (v2 handlers win per D-02)
-		v2.POST("login", userCtrl.LoginAPIV2)
+		// Auth routes (v2 handlers win per D-02) — rate limited (T-03-05)
+		v2.POST("login", rl, userCtrl.LoginAPIV2)
 		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
 
 		// Register static grind paths BEFORE dynamic :id
@@ -79,8 +86,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 		v2.GET("grinds/:id", grindCtrl.GetGrindAPI)
 		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)
 
-		// User routes
-		v2.POST("register", userCtrl.RegisterAPI)
+		// User routes — register rate limited (T-03-05)
+		v2.POST("register", rl, userCtrl.RegisterAPI)
 		v2.POST("logout", userCtrl.LogoutAPI)
 		v2.GET("users/exists", userCtrl.CheckUserExistsAPI)
 		v2.PATCH("users/update-profile", profileCtrl.UpdateProfileAPI)
@@ -104,8 +111,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 		v2.POST("messages/:id/invitation/reject", messageCtrl.RejectInvitationAPI)
 		v2.POST("messages/:id/read", messageCtrl.ReadMessageAPI)
 
-		// Ingest
-		v2.POST("ingest/:provider", ingestCtrl.HandleIngest)
+		// Ingest — rate limited (T-03-05)
+		v2.POST("ingest/:provider", rl, ingestCtrl.HandleIngest)
 
 		// Partner groups — register static POST groups/join BEFORE dynamic GET groups/:id
 		v2.POST("groups", partnerGroupCtrl.CreateGroupAPI)

@@ -81,7 +81,6 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 		// Register static grind paths BEFORE dynamic :id
 		v2.POST("grinds", grindCtrl.CreateGrindAPI)
 		v2.GET("grinds", grindCtrl.GetAllUserGrindsAPI)
-		v2.DELETE("grinds/delete-all", grindCtrl.DeleteAllGrindsAPI)
 		v2.GET("grinds/current", grindCtrl.GetUserCurrentGrindAPI) // static BEFORE grinds/:id
 		v2.GET("grinds/:id", grindCtrl.GetGrindAPI)
 		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)

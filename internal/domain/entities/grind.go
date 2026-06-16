@@ -9,14 +9,15 @@ import (
 
 /** Unit of grind */
 type Grind struct {
-	ID           string
-	Duration     int32 // stored in days
-	Participants []User
-	Budget       int32
-	Tasks        []Task
-	StartDate    time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             string
+	Duration       int32 // stored in days
+	Participants   []User
+	Budget         int32
+	Tasks          []HabitTask
+	StartDate      time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	PartnerGroupID string // references PartnerGroup.ID; empty when no group is attached (per D-04)
 }
 
 /** Constructor in factory pattern
@@ -41,7 +42,7 @@ func NewGrind(duration int, budget int, startDate time.Time) (*Grind, error) {
 		Duration:     int32(duration),
 		Participants: []User{},
 		Budget:       int32(budget),
-		Tasks:        []Task{},
+		Tasks:        []HabitTask{},
 		StartDate:    startDate.UTC(),
 		CreatedAt:    now,
 		UpdatedAt:    now,

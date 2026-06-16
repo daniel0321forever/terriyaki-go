@@ -10,16 +10,13 @@ import (
 
 type ParticipationService struct {
 	participationRepo repositories.ParticipationRepository
-	taskRepo          repositories.TaskRepository
 }
 
 func NewParticipationService(
 	participationRepo repositories.ParticipationRepository,
-	taskRepo repositories.TaskRepository,
 ) *ParticipationService {
 	return &ParticipationService{
 		participationRepo: participationRepo,
-		taskRepo:          taskRepo,
 	}
 }
 

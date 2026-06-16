@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewMessage(t *testing.T) {
@@ -111,12 +113,8 @@ func TestNewMessage(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if msg == nil {
-				t.Fatalf("expected message, got nil")
-			}
+			require.NoError(t, err)
+			require.NotNil(t, msg)
 			if msg.ID == "" {
 				t.Fatalf("expected non-empty message ID")
 			}

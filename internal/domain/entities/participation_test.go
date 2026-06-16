@@ -1,17 +1,18 @@
 package entities
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestNewParticipation(t *testing.T) {
 	t.Parallel()
 
 	p, err := NewParticipation("user-1", "grind-1")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if p == nil {
-		t.Fatalf("expected participation, got nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
 	if p.ID == "" {
 		t.Fatalf("expected non-empty participation ID")
 	}

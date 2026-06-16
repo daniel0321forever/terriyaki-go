@@ -12,20 +12,21 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	// Initialize repositories
 	userRepo := postgres.NewGormUserRepository(db)
 	grindRepo := postgres.NewGormGrindRepository(db)
-	taskRepo := postgres.NewGormTaskRepository(db)
 	participationRepo := postgres.NewGormParticipationRepository(db)
 	messageRepo := postgres.NewGormMessageRepository(db)
-	interviewSessionRepo := postgres.NewGormInterviewSessionRepository(db)
 	paymentInfoRepo := postgres.NewGormStripePaymentInfoRepository(db)
 	paymentIdempotencyRepo := postgres.NewGormPaymentIdempotencyRepository(db)
 	paymentSettlementRepo := postgres.NewGormPaymentSettlementRepository(db)
+	habitTaskRepo := postgres.NewGormHabitTaskRepository(db)
+	completionEventRepo := postgres.NewGormCompletionEventRepository(db)
+	partnerGroupRepo := postgres.NewGormPartnerGroupRepository(db)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
-	grindService := services.NewGrindService(grindRepo, userRepo, taskRepo, participationRepo, messageRepo)
-	taskService := services.NewTaskService(taskRepo)
+	grindService := services.NewGrindService(grindRepo, userRepo, habitTaskRepo, participationRepo, messageRepo)
 	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
-	interviewService := services.NewInterviewService(interviewSessionRepo)
+	ingestService := services.NewIngestService(habitTaskRepo, completionEventRepo)
+	partnerGroupService := services.NewPartnerGroupService(partnerGroupRepo)
 	paymentFactory := services.NewPaymentServiceFactory(
 		userRepo,
 		grindRepo,
@@ -54,11 +55,11 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	grindCtrl := NewGrindController(grindService, userService, messageService)
 	userCtrl := NewUserController(grindService, userService)
 	healthCtrl := NewHealthController()
-	taskCtrl := NewTaskController(taskService, grindService)
 	messageCtrl := NewMessageController(userService, messageService, grindService)
-	interviewCtrl := NewInterviewController(interviewService, userService, taskService)
 	paymentCtrl := NewPaymentController(userService, stripePaymentService, solanaPaymentService)
 	profileCtrl := NewProfileController(userService)
+	ingestCtrl := NewIngestController(ingestService)
+	partnerGroupCtrl := NewPartnerGroupController(partnerGroupService)
 
 	// define routes
 	v1 := router.Group("/api/v1")
@@ -73,13 +74,6 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 		v1.POST("login", userCtrl.LoginAPI)
 		v1.POST("logout", userCtrl.LogoutAPI)
 		v1.GET("verify-token", userCtrl.VerifyTokenAPI)
-		v1.POST("tasks/finish", taskCtrl.FinishTodayTaskAPI)
-		v1.GET("tasks/today", taskCtrl.GetTodayTaskAPI)
-		v1.GET("tasks/:id", taskCtrl.GetTaskAPI)
-		v1.POST("interviews/llm", interviewCtrl.LLMWebhookAPI)
-		v1.POST("interviews/start", interviewCtrl.StartInterviewAPI)
-		v1.POST("interviews/:id/response", interviewCtrl.SaveAgentResponseAPI)
-		v1.POST("interviews/:id/end", interviewCtrl.EndInterviewAPI)
 		// Stripe payment endpoints
 		v1.POST("payments/stripe/payment-intent", paymentCtrl.PaymentIntentAPI)
 		v1.POST("payments/methods", paymentCtrl.AddPaymentMethodAPI)
@@ -104,5 +98,11 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 		v2.POST("login", userCtrl.LoginAPIV2)
 		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
 		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)
+		v2.POST("ingest/:provider", ingestCtrl.HandleIngest)
+		v2.POST("groups", partnerGroupCtrl.CreateGroupAPI)
+		// Register static POST groups/join BEFORE dynamic GET groups/:id to avoid Gin wildcard conflict.
+		v2.POST("groups/join", partnerGroupCtrl.JoinGroupAPI)
+		v2.GET("groups/:id", partnerGroupCtrl.GetGroupAPI)
+		v2.POST("groups/:id/invite", partnerGroupCtrl.GenerateInviteLinkAPI)
 	}
 }

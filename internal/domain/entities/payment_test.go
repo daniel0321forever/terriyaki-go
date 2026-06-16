@@ -1,6 +1,10 @@
 package entities
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestNewStripePaymentInfo(t *testing.T) {
 	t.Parallel()
@@ -15,9 +19,7 @@ func TestNewStripePaymentInfo(t *testing.T) {
 		2030,
 	)
 
-	if info == nil {
-		t.Fatalf("expected payment info, got nil")
-	}
+	require.NotNil(t, info)
 	if info.UserID != "user-1" {
 		t.Fatalf("expected userID user-1, got %q", info.UserID)
 	}
@@ -56,9 +58,7 @@ func TestNewPaymentMethodInfo(t *testing.T) {
 		2030,
 	)
 
-	if info == nil {
-		t.Fatalf("expected payment method info, got nil")
-	}
+	require.NotNil(t, info)
 	if info.ProviderCustomerID != "cus_123" {
 		t.Fatalf("expected provider customer ref cus_123, got %q", info.ProviderCustomerID)
 	}
@@ -74,9 +74,7 @@ func TestNewSolanaPaymentMethodInfo(t *testing.T) {
 	t.Parallel()
 
 	info := NewSolanaPaymentMethodInfo("user-1", "devnet", "wallet_abc", "program_xyz")
-	if info == nil {
-		t.Fatalf("expected solana payment method info, got nil")
-	}
+	require.NotNil(t, info)
 	if info.Network != "devnet" {
 		t.Fatalf("expected devnet, got %q", info.Network)
 	}
@@ -89,9 +87,7 @@ func TestNewSolanaSettlementInfo(t *testing.T) {
 	t.Parallel()
 
 	info := NewSolanaSettlementInfo("user-1", "devnet", "sig_123", "contract_abc", SettlementStatusAuthorized, 0)
-	if info == nil {
-		t.Fatalf("expected solana settlement info, got nil")
-	}
+	require.NotNil(t, info)
 	if info.TransactionSignature != "sig_123" {
 		t.Fatalf("expected sig_123, got %q", info.TransactionSignature)
 	}

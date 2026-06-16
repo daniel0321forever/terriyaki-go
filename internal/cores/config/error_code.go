@@ -49,6 +49,16 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
+// HabitTask service errors
+var (
+	ErrHabitTaskNotFound = errors.New("habit task not found")
+)
+
+// Partner group service errors
+var (
+	ErrForbidden = errors.New("forbidden")
+)
+
 // Helper function for dynamic errors
 func ErrParticipationAlreadyExists(userID, grindID string) error {
 	return fmt.Errorf("already exists participation record for %s and %s", userID, grindID)

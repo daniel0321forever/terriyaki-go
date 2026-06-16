@@ -7,39 +7,30 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 )
 
-// BuildGroupGrindDTO constructs GroupGrindDTO from Grind-related entities
+// BuildGroupGrindDTO constructs GroupGrindDTO from Grind-related entities.
 func BuildGroupGrindDTO(grind *entities.Grind, participants []entities.User) *dto.GroupGrindDTO {
-	// Convert Tasks
 	tasks := grind.Tasks
-	taskProgressDTOs := make([]dto.TaskProgressDTO, 0, len(tasks))
+	progressDTOs := make([]dto.HabitTaskProgressDTO, 0, len(tasks))
 	for i := range tasks {
-		taskProgressDTO := BuildTaskProgressDTO(&tasks[i])
-		if taskProgressDTO != nil {
-			taskProgressDTOs = append(taskProgressDTOs, *taskProgressDTO)
+		p := BuildHabitTaskProgressDTO(&tasks[i])
+		if p != nil {
+			progressDTOs = append(progressDTOs, *p)
 		}
 	}
 
-	// Get today's task
-	var todayTask *entities.Task = nil
-	var todayTaskDTO *dto.TaskDTO = nil
-
-	for _, task := range tasks {
-		if task.Date.Equal(time.Now().UTC().Truncate(24 * time.Hour)) {
-			todayTask = &task
+	var todayTaskDTO *dto.HabitTaskDTO
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	for i := range tasks {
+		if tasks[i].Date.UTC().Truncate(24 * time.Hour).Equal(today) {
+			todayTaskDTO = BuildHabitTaskDTO(&tasks[i])
 			break
 		}
 	}
 
-	if todayTask != nil {
-		todayTaskDTO = BuildTaskDTO(todayTask)
+	participantDTOs := make([]dto.UserDTO, 0, len(participants))
+	for _, p := range participants {
+		participantDTOs = append(participantDTOs, *BuildUserDTO(&p))
 	}
-
-	participantsDTOs := make([]dto.UserDTO, 0, len(participants))
-	for _, participant := range participants {
-		participantsDTOs = append(participantsDTOs, *BuildUserDTO(&participant))
-	}
-
-	// get today's task
 
 	return &dto.GroupGrindDTO{
 		ID:           grind.ID,
@@ -48,13 +39,13 @@ func BuildGroupGrindDTO(grind *entities.Grind, participants []entities.User) *dt
 		StartDate:    grind.StartDate,
 		CreatedAt:    grind.CreatedAt,
 		UpdatedAt:    grind.UpdatedAt,
-		Progress:     taskProgressDTOs,
-		Participants: participantsDTOs,
+		Progress:     progressDTOs,
+		Participants: participantDTOs,
 		TodayTask:    todayTaskDTO,
 	}
 }
 
-// BuildMessageGrindDTO constructs MessageGrindDTO from Grind-related entity
+// BuildMessageGrindDTO constructs MessageGrindDTO from Grind-related entity.
 func BuildMessageGrindDTO(grind *entities.Grind) *dto.MessageGrindDTO {
 	return &dto.MessageGrindDTO{
 		Duration:     grind.Duration,

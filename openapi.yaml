@@ -888,13 +888,218 @@ paths:
                     type: string
                     example: pong
 
+  /api/v2/ingest/{provider}:
+    post:
+      tags:
+        - CompletionEvents
+      summary: Ingest a habit completion event from an external provider
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [leetcode, duolingo]
+          description: Habit provider identifier
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grindID:
+                  type: string
+                occurredAt:
+                  type: string
+                  format: date-time
+              required:
+                - grindID
+      responses:
+        "201":
+          description: Completion event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionEventDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v2/groups:
+    post:
+      tags:
+        - PartnerGroups
+      summary: Create a partner group linked to a grind
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grindID:
+                  type: string
+                name:
+                  type: string
+              required:
+                - grindID
+                - name
+      responses:
+        "201":
+          description: Partner group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerGroupDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/groups/{id}:
+    get:
+      tags:
+        - PartnerGroups
+      summary: Get a partner group by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Partner group ID
+      responses:
+        "200":
+          description: Partner group details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerGroupDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v2/groups/{id}/invite:
+    post:
+      tags:
+        - PartnerGroups
+      summary: Generate a signed invite link for a partner group (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Partner group ID
+      responses:
+        "200":
+          description: Invite link generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  inviteURL:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden — caller is not the group owner
+
+  /api/v2/groups/join:
+    post:
+      tags:
+        - PartnerGroups
+      summary: Join a partner group using a signed invite token
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+                - token
+      responses:
+        "200":
+          description: Successfully joined the partner group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerGroupDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "Format: ApiKey <key>"
 
   schemas:
+    CompletionEventDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        habitTaskID:
+          type: string
+        userID:
+          type: string
+        provider:
+          type: string
+          enum: [leetcode, duolingo, custom]
+        occurredAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    PartnerGroupDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        grindID:
+          type: string
+        ownerID:
+          type: string
+        members:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
     Participation:
       type: object
       properties:

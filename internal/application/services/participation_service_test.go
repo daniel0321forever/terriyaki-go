@@ -16,10 +16,9 @@ func TestParticipationServiceGetParticipation_NotFoundMapped(t *testing.T) {
 	t.Parallel()
 
 	partRepo := new(mocks.MockParticipationRepository)
-	taskRepo := new(mocks.MockTaskRepository)
 	partRepo.On("FindByParticipationId", "p1").Return(nil, errors.New("missing"))
 
-	svc := NewParticipationService(partRepo, taskRepo)
+	svc := NewParticipationService(partRepo)
 
 	_, err := svc.GetParticipation(dto.GetParticipation{ParticipationID: "p1"})
 	if !errors.Is(err, config.ErrParticipationNotFound) {
@@ -34,14 +33,13 @@ func TestParticipationServiceUpdateParticipation_Success(t *testing.T) {
 	model := &entities.Participation{ID: "p1", UserID: "u1", GrindID: "g1"}
 
 	partRepo := new(mocks.MockParticipationRepository)
-	taskRepo := new(mocks.MockTaskRepository)
 
 	partRepo.On("FindByParticipationId", "p1").Return(model, nil)
 	partRepo.On("Update", mock.MatchedBy(func(p *entities.Participation) bool {
 		return p.ID == "p1" && p.MissedDays == 3 && p.TotalPenalty == 120 && p.Quitted
 	})).Return(nil)
 
-	svc := NewParticipationService(partRepo, taskRepo)
+	svc := NewParticipationService(partRepo)
 
 	res, err := svc.UpdateParticipation(dto.UpdateAddParticipationDTO{
 		ParticipationID: "p1",

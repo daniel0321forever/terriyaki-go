@@ -1,6 +1,6 @@
 module github.com/daniel0321forever/terriyaki-go
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/dustyRAIN/leetcode-api-go v1.0.1
@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
+	github.com/mr-tron/base58 v1.2.0
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/stretchr/testify v1.11.1
 	github.com/stripe/stripe-go/v84 v84.1.0
@@ -23,7 +24,6 @@ require (
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
-	github.com/mr-tron/base58 v1.2.0
 )
 
 require (
@@ -32,7 +32,9 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
+	github.com/go-redis/redismock/v9 v9.2.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
+	github.com/mark3labs/mcp-go v0.54.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect

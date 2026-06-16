@@ -167,17 +167,6 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 	grindID := messageDTO.InvitationGrind.ID
 
-	// Add participant to grind (still uses string params - service not updated yet)
-	addParticipationDTO := dto.AddParticipationDTO{
-		GrindID: grindID,
-		UserID:  userID,
-	}
-	err = ctrl.grindService.AddParticipation(addParticipationDTO)
-	if err != nil {
-		RespondInternalServerError(c, "internal server error")
-		return
-	}
-
 	// Get invitor user data from inviting message sender id
 	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
 	invitorDTO, err := ctrl.userService.GetUser(getUserDTO)
@@ -186,30 +175,34 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 		return
 	}
 
-	// Update message status
+	// Build DTOs for the atomic AcceptInvitation call
+	addParticipationDTO := dto.AddParticipationDTO{
+		GrindID: grindID,
+		UserID:  userID,
+	}
 	updateMessageDTO := dto.UpdateMessageInvitationAcceptedStatusDTO{
 		MessageID: messageID,
 		Accepted:  true,
 	}
-	_, err = ctrl.messageService.UpdateMessageInvitationAcceptedStatus(updateMessageDTO)
-	if err != nil {
-		RespondInternalServerError(c, "internal server error")
-		return
-	}
-
-	// Create invitation accepted message
-	createMessageDTO := dto.CreateInvitationAcceptedMessageDTO{
+	createAcceptedMsgDTO := dto.CreateInvitationAcceptedMessageDTO{
 		AccepterID: accepterDTO.ID,
 		InvitorID:  invitorDTO.ID,
 		GrindID:    grindID,
 	}
-	messageDTO, err = ctrl.messageService.CreateInvitationAcceptedMessage(createMessageDTO)
-	if err != nil {
+
+	// Single transactional call that creates participation + habit tasks +
+	// updates invitation message + creates accepted notification
+	if err := ctrl.grindService.AcceptInvitation(
+		addParticipationDTO,
+		updateMessageDTO,
+		createAcceptedMsgDTO,
+		ctrl.grindService.MessageRepo(),
+	); err != nil {
 		RespondInternalServerError(c, "internal server error")
 		return
 	}
 
-	// Get grind
+	// Get grind for response
 	getGrindDTO := dto.GetGrindDTO{GrindID: grindID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
@@ -258,22 +251,23 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
 	invitorDTO, _ := ctrl.userService.GetUser(getUserDTO)
 
-	// Update message invitation responded status
+	// Build DTOs for the atomic RejectInvitationTx call
 	updateMessageDTO := dto.UpdateMessageInvitationAcceptedStatusDTO{
 		MessageID: messageID,
 		Accepted:  false,
 	}
-	_, _ = ctrl.messageService.UpdateMessageInvitationAcceptedStatus(updateMessageDTO)
-
-	// Create invitation rejected message
-	createMessageDTO := dto.CreateInvitationRejectedMessageDTO{
+	createRejectedMsgDTO := dto.CreateInvitationRejectedMessageDTO{
 		RejecterID: rejectorDTO.ID,
 		InvitorID:  invitorDTO.ID,
 		GrindID:    messageDTO.InvitationGrind.ID,
 	}
-	messageDTO, _ = ctrl.messageService.CreateInvitationRejectedMessage(createMessageDTO)
 
-	// Get grind
+	if err := ctrl.messageService.RejectInvitationTx(updateMessageDTO, createRejectedMsgDTO); err != nil {
+		RespondInternalServerError(c, "internal server error")
+		return
+	}
+
+	// Get grind for response
 	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrind.ID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {

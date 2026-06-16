@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"gorm.io/gorm"
 )
 
 var (
@@ -43,7 +44,7 @@ func Router() *gin.Engine {
 
 	router := gin.Default()
 
-	api.RegisterRoutes(router, db)
+	api.RegisterRoutes(router, db, nil)
 
 	return router
 }
@@ -356,4 +357,17 @@ func ParseResponseMap(t interface {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 	return response
+}
+
+// TestDB returns the test database connection used by the integration test harness.
+func TestDB() *gorm.DB {
+	return postgres.Db
+}
+
+// NewGinContext creates a minimal *gin.Context backed by a ResponseRecorder for unit-level handler testing.
+func NewGinContext(w *httptest.ResponseRecorder) (*gin.Context, *gin.Engine) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	c, _ := gin.CreateTestContext(w)
+	return c, r
 }

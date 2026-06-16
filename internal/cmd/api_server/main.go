@@ -34,7 +34,8 @@ func main() {
 		panic(err)
 	}
 
-	api.RegisterRoutes(router, db)
+	// TODO(03-02): replace nil with initialized rdb client once Redis init is added in Plan 03-02
+	api.RegisterRoutes(router, db, nil)
 
 	if err := router.Run(":8080"); err != nil {
 		panic(err)

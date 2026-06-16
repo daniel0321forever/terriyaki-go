@@ -33,6 +33,10 @@ func NewGormMessageRepository(db *gorm.DB) *GormMessageRepository {
 	return &GormMessageRepository{db: db}
 }
 
+func (r *GormMessageRepository) WithTx(tx *gorm.DB) *GormMessageRepository {
+	return &GormMessageRepository{db: tx}
+}
+
 func (r *GormMessageRepository) Create(message *entities.Message) error {
 	ctx := context.Background()
 	model := MessageSchema{

@@ -29,6 +29,10 @@ func NewGormParticipationRepository(db *gorm.DB) *GormParticipationRepository {
 	return &GormParticipationRepository{db: db}
 }
 
+func (r *GormParticipationRepository) WithTx(tx *gorm.DB) *GormParticipationRepository {
+	return &GormParticipationRepository{db: tx}
+}
+
 func (r *GormParticipationRepository) Create(participation *entities.Participation) error {
 	ctx := context.Background()
 	model := ParticipationSchema{

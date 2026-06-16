@@ -36,6 +36,10 @@ func NewGormGrindRepository(db *gorm.DB) *GormGrindRepository {
 	return &GormGrindRepository{db: db}
 }
 
+func (r *GormGrindRepository) WithTx(tx *gorm.DB) *GormGrindRepository {
+	return &GormGrindRepository{db: tx}
+}
+
 func (r *GormGrindRepository) Create(grind *entities.Grind) error {
 	ctx := context.Background()
 	// 1. Map Entity -> DB Schema

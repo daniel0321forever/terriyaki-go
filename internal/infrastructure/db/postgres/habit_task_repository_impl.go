@@ -31,6 +31,10 @@ func NewGormHabitTaskRepository(db *gorm.DB) *GormHabitTaskRepository {
 	return &GormHabitTaskRepository{db: db}
 }
 
+func (r *GormHabitTaskRepository) WithTx(tx *gorm.DB) *GormHabitTaskRepository {
+	return &GormHabitTaskRepository{db: tx}
+}
+
 func habitTaskSchemaToEntity(s *HabitTaskSchema) *entities.HabitTask {
 	return &entities.HabitTask{
 		ID:           s.ID,

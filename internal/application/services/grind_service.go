@@ -8,9 +8,12 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
+	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
+	"gorm.io/gorm"
 )
 
 type GrindService struct {
+	db                *gorm.DB
 	grindRepo         repositories.GrindRepository
 	userRepo          repositories.UserRepository
 	habitTaskRepo     repositories.HabitTaskRepository
@@ -19,6 +22,7 @@ type GrindService struct {
 }
 
 func NewGrindService(
+	db *gorm.DB,
 	grindRepo repositories.GrindRepository,
 	userRepo repositories.UserRepository,
 	habitTaskRepo repositories.HabitTaskRepository,
@@ -26,6 +30,7 @@ func NewGrindService(
 	messageRepo repositories.MessageRepository,
 ) *GrindService {
 	return &GrindService{
+		db:                db,
 		grindRepo:         grindRepo,
 		userRepo:          userRepo,
 		habitTaskRepo:     habitTaskRepo,
@@ -51,36 +56,57 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 	if err != nil {
 		return nil, err
 	}
-	if err := s.grindRepo.Create(grind); err != nil {
-		return nil, err
-	}
 
-	participation, err := entities.NewParticipation(request.CreatorID, grind.ID)
-	if err != nil {
-		return nil, err
-	}
-	_ = s.participationRepo.Create(participation)
+	var result *dto.GroupGrindDTO
 
-	creator, err := s.userRepo.FindById(request.CreatorID)
-	if err != nil {
-		return nil, err
-	}
-	grind.Participants = []entities.User{*creator}
+	txErr := s.db.Transaction(func(tx *gorm.DB) error {
+		grindRepo := s.grindRepo.(*postgres.GormGrindRepository).WithTx(tx)
+		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
+		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
 
-	tasks := make([]entities.HabitTask, 0, request.Duration)
-	for i := 0; i < request.Duration; i++ {
-		task, err := entities.NewHabitTask(request.CreatorID, grind.ID, request.StartDate.AddDate(0, 0, i))
+		if err := grindRepo.Create(grind); err != nil {
+			return err
+		}
+
+		participation, err := entities.NewParticipation(request.CreatorID, grind.ID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if err := s.habitTaskRepo.Create(task); err != nil {
-			return nil, err
+		if err := partRepo.Create(participation); err != nil {
+			return err
 		}
-		tasks = append(tasks, *task)
-	}
-	grind.Tasks = tasks
 
-	return s.toGroupGrindDTO(grind)
+		tasks := make([]entities.HabitTask, 0, request.Duration)
+		for i := 0; i < request.Duration; i++ {
+			task, err := entities.NewHabitTask(request.CreatorID, grind.ID, request.StartDate.AddDate(0, 0, i))
+			if err != nil {
+				return err
+			}
+			if err := habitTaskRepo.Create(task); err != nil {
+				return err
+			}
+			tasks = append(tasks, *task)
+		}
+		grind.Tasks = tasks
+
+		creator, err := s.userRepo.FindById(request.CreatorID)
+		if err != nil {
+			return err
+		}
+		grind.Participants = []entities.User{*creator}
+
+		dto, dtoErr := s.toGroupGrindDTO(grind)
+		if dtoErr != nil {
+			return dtoErr
+		}
+		result = dto
+		return nil
+	})
+
+	if txErr != nil {
+		return nil, txErr
+	}
+	return result, nil
 }
 
 func (s *GrindService) GetOngoingGrindByUserID(request dto.GetOngoingGrindDTO) (*dto.GroupGrindDTO, error) {
@@ -161,13 +187,19 @@ func (s *GrindService) UpdateGrind(request dto.UpdateGrindDTO) (*dto.GroupGrindD
 }
 
 func (s *GrindService) DeleteGrind(request dto.DeleteGrindDTO) error {
-	if err := s.habitTaskRepo.DeleteByGrindID(request.GrindID); err != nil {
-		return err
-	}
-	if err := s.participationRepo.DeleteByGrindID(request.GrindID); err != nil {
-		return err
-	}
-	return s.grindRepo.Delete(request.GrindID)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
+		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
+		grindRepo := s.grindRepo.(*postgres.GormGrindRepository).WithTx(tx)
+
+		if err := habitTaskRepo.DeleteByGrindID(request.GrindID); err != nil {
+			return err
+		}
+		if err := partRepo.DeleteByGrindID(request.GrindID); err != nil {
+			return err
+		}
+		return grindRepo.Delete(request.GrindID)
+	})
 }
 
 func (s *GrindService) DeleteAllGrinds() error {
@@ -175,6 +207,7 @@ func (s *GrindService) DeleteAllGrinds() error {
 }
 
 func (s *GrindService) AddParticipation(request dto.AddParticipationDTO) error {
+	// Guard reads outside the transaction
 	existing, _ := s.participationRepo.FindByUserAndGrind(request.UserID, request.GrindID)
 	if existing != nil {
 		return config.ErrParticipationAlreadyExists(request.UserID, request.GrindID)
@@ -190,24 +223,107 @@ func (s *GrindService) AddParticipation(request dto.AddParticipationDTO) error {
 		return config.ErrGrindNotFound
 	}
 
-	participation, err := entities.NewParticipation(user.ID, grind.ID)
-	if err != nil {
-		return err
-	}
-	if err := s.participationRepo.Create(participation); err != nil {
-		return err
-	}
+	// Wrap only the writes in a transaction
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
+		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
 
-	for i := 0; i < int(grind.Duration); i++ {
-		task, err := entities.NewHabitTask(user.ID, grind.ID, grind.StartDate.AddDate(0, 0, i))
+		participation, err := entities.NewParticipation(user.ID, grind.ID)
 		if err != nil {
 			return err
 		}
-		if err := s.habitTaskRepo.Create(task); err != nil {
+		if err := partRepo.Create(participation); err != nil {
 			return err
 		}
+
+		for i := 0; i < int(grind.Duration); i++ {
+			task, err := entities.NewHabitTask(user.ID, grind.ID, grind.StartDate.AddDate(0, 0, i))
+			if err != nil {
+				return err
+			}
+			if err := habitTaskRepo.Create(task); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// AcceptInvitation orchestrates the acceptance of a grind invitation atomically.
+// It creates participation + habit tasks + updates message status + creates accepted notification
+// all within a single DB transaction.
+func (s *GrindService) AcceptInvitation(
+	addParticipationReq dto.AddParticipationDTO,
+	updateMsgReq dto.UpdateMessageInvitationAcceptedStatusDTO,
+	createAcceptedMsgReq dto.CreateInvitationAcceptedMessageDTO,
+	messageRepo repositories.MessageRepository,
+) error {
+	// Guard reads outside the transaction
+	existing, _ := s.participationRepo.FindByUserAndGrind(addParticipationReq.UserID, addParticipationReq.GrindID)
+	if existing != nil {
+		return config.ErrParticipationAlreadyExists(addParticipationReq.UserID, addParticipationReq.GrindID)
 	}
-	return nil
+
+	user, err := s.userRepo.FindById(addParticipationReq.UserID)
+	if err != nil {
+		return config.ErrUserNotFound
+	}
+
+	grind, err := s.grindRepo.FindById(addParticipationReq.GrindID)
+	if err != nil {
+		return config.ErrGrindNotFound
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
+		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
+		msgRepo := messageRepo.(*postgres.GormMessageRepository).WithTx(tx)
+
+		// Create participation
+		participation, err := entities.NewParticipation(user.ID, grind.ID)
+		if err != nil {
+			return err
+		}
+		if err := partRepo.Create(participation); err != nil {
+			return err
+		}
+
+		// Create habit tasks for each day of the grind
+		for i := 0; i < int(grind.Duration); i++ {
+			task, err := entities.NewHabitTask(user.ID, grind.ID, grind.StartDate.AddDate(0, 0, i))
+			if err != nil {
+				return err
+			}
+			if err := habitTaskRepo.Create(task); err != nil {
+				return err
+			}
+		}
+
+		// Update original invitation message status to accepted
+		inviteMsg, err := msgRepo.FindByID(updateMsgReq.MessageID)
+		if err != nil {
+			return err
+		}
+		inviteMsg.InvitationAccepted = updateMsgReq.Accepted
+		if err := msgRepo.Update(inviteMsg); err != nil {
+			return err
+		}
+
+		// Create accepted notification message to invitor
+		acceptedMsg, err := entities.NewMessage(
+			createAcceptedMsgReq.AccepterID,
+			createAcceptedMsgReq.InvitorID,
+			createAcceptedMsgReq.AccepterID+" accepted your invitation",
+			"invitation_accepted",
+			createAcceptedMsgReq.GrindID,
+			true,
+			false,
+		)
+		if err != nil {
+			return err
+		}
+		return msgRepo.Create(acceptedMsg)
+	})
 }
 
 func (s *GrindService) QuitGrind(request dto.QuitGrindDTO) (*dto.ParticipationDTO, error) {
@@ -232,4 +348,9 @@ func (s *GrindService) QuitGrind(request dto.QuitGrindDTO) (*dto.ParticipationDT
 	}
 
 	return s.toParticipationDTO(participation), nil
+}
+
+// MessageRepo returns the message repository for use in controller-level orchestration.
+func (s *GrindService) MessageRepo() repositories.MessageRepository {
+	return s.messageRepo
 }

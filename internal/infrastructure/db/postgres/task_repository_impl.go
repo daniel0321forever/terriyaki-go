@@ -28,7 +28,7 @@ type TaskSchema struct {
 	CodeLanguage string
 }
 
-func (TaskSchema) TableName() string { return "tasks" }
+func (TaskSchema) TableName() string { return "habit_tasks" }
 
 type GormTaskRepository struct {
 	db *gorm.DB

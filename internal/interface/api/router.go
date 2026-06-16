@@ -19,6 +19,9 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	paymentInfoRepo := postgres.NewGormStripePaymentInfoRepository(db)
 	paymentIdempotencyRepo := postgres.NewGormPaymentIdempotencyRepository(db)
 	paymentSettlementRepo := postgres.NewGormPaymentSettlementRepository(db)
+	habitTaskRepo := postgres.NewGormHabitTaskRepository(db)
+	completionEventRepo := postgres.NewGormCompletionEventRepository(db)
+	partnerGroupRepo := postgres.NewGormPartnerGroupRepository(db)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
@@ -26,6 +29,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	taskService := services.NewTaskService(taskRepo)
 	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
 	interviewService := services.NewInterviewService(interviewSessionRepo)
+	ingestService := services.NewIngestService(habitTaskRepo, completionEventRepo)
+	partnerGroupService := services.NewPartnerGroupService(partnerGroupRepo)
 	paymentFactory := services.NewPaymentServiceFactory(
 		userRepo,
 		grindRepo,
@@ -59,6 +64,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	interviewCtrl := NewInterviewController(interviewService, userService, taskService)
 	paymentCtrl := NewPaymentController(userService, stripePaymentService, solanaPaymentService)
 	profileCtrl := NewProfileController(userService)
+	ingestCtrl := NewIngestController(ingestService)
+	partnerGroupCtrl := NewPartnerGroupController(partnerGroupService)
 
 	// define routes
 	v1 := router.Group("/api/v1")
@@ -104,5 +111,11 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 		v2.POST("login", userCtrl.LoginAPIV2)
 		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
 		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)
+		v2.POST("ingest/:provider", ingestCtrl.HandleIngest)
+		v2.POST("groups", partnerGroupCtrl.CreateGroupAPI)
+		// Register static POST groups/join BEFORE dynamic GET groups/:id to avoid Gin wildcard conflict.
+		v2.POST("groups/join", partnerGroupCtrl.JoinGroupAPI)
+		v2.GET("groups/:id", partnerGroupCtrl.GetGroupAPI)
+		v2.POST("groups/:id/invite", partnerGroupCtrl.GenerateInviteLinkAPI)
 	}
 }

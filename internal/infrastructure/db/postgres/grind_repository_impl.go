@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
+	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +37,7 @@ func NewGormGrindRepository(db *gorm.DB) *GormGrindRepository {
 	return &GormGrindRepository{db: db}
 }
 
-func (r *GormGrindRepository) WithTx(tx *gorm.DB) *GormGrindRepository {
+func (r *GormGrindRepository) WithTx(tx *gorm.DB) repositories.GrindRepository {
 	return &GormGrindRepository{db: tx}
 }
 
@@ -187,7 +188,7 @@ func (r *GormGrindRepository) FindDuedGrinds() ([]*entities.Grind, error) {
 
 	err := r.db.WithContext(ctx).
 		Table("grinds").
-		Where("DATE(start_date, '+' || duration || ' day') = ?", today.Format("2006-01-02")).
+		Where("(start_date + (duration::text || ' days')::interval)::date = ?", today.Format("2006-01-02")).
 		Find(&models).Error
 
 	if err != nil {

@@ -165,6 +165,10 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 		RespondNotFound(c, "inviting message not found")
 		return
 	}
+	if messageDTO.InvitationGrind == nil {
+		RespondBadRequest(c, "message is not an invitation")
+		return
+	}
 	grindID := messageDTO.InvitationGrind.ID
 
 	// Get invitor user data from inviting message sender id
@@ -244,6 +248,10 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	messageDTO, err := ctrl.messageService.GetMessageByID(getMessageDTO)
 	if err != nil {
 		RespondNotFound(c, "inviting message not found")
+		return
+	}
+	if messageDTO.InvitationGrind == nil {
+		RespondBadRequest(c, "message is not an invitation")
 		return
 	}
 

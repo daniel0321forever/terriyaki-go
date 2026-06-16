@@ -9,14 +9,15 @@ import (
 
 /** Unit of grind */
 type Grind struct {
-	ID           string
-	Duration     int32 // stored in days
-	Participants []User
-	Budget       int32
-	Tasks        []Task
-	StartDate    time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             string
+	Duration       int32 // stored in days
+	Participants   []User
+	Budget         int32
+	Tasks          []Task
+	StartDate      time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	PartnerGroupID string // references PartnerGroup.ID; empty when no group is attached (per D-04)
 }
 
 /** Constructor in factory pattern

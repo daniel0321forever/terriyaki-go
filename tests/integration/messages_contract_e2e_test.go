@@ -9,7 +9,7 @@ import (
 )
 
 func TestMessagesUnauthorized(t *testing.T) {
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/messages", nil, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v2/messages", nil, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -24,7 +24,7 @@ func TestCreateInvitationUnauthorized(t *testing.T) {
 		"grindID":          "grind_test",
 	}
 
-	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v1/messages/invitation", requestBody, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v2/messages/invitation", requestBody, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())

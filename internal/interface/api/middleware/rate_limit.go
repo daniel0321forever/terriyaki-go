@@ -19,6 +19,11 @@ import (
 //   - On Redis error: fail-open (c.Next()) — Redis unavailability must never block traffic.
 func RateLimitMiddleware(rdb *redis.Client, limit int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if rdb == nil {
+			c.Next()
+			return
+		}
+
 		ip := c.ClientIP()
 		key := fmt.Sprintf("rate:%s:%s", ip, c.FullPath())
 

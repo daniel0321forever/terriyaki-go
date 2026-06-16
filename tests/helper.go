@@ -249,7 +249,7 @@ func BearerToken() string {
 		"password": "test",
 	}
 
-	_, writer := MakeRequest("POST", "/api/v1/login", user, "")
+	_, writer := MakeRequest("POST", "/api/v2/login", user, "")
 	var response map[string]string
 	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
 		return ""

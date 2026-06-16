@@ -12,10 +12,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	// Initialize repositories
 	userRepo := postgres.NewGormUserRepository(db)
 	grindRepo := postgres.NewGormGrindRepository(db)
-	taskRepo := postgres.NewGormTaskRepository(db)
 	participationRepo := postgres.NewGormParticipationRepository(db)
 	messageRepo := postgres.NewGormMessageRepository(db)
-	interviewSessionRepo := postgres.NewGormInterviewSessionRepository(db)
 	paymentInfoRepo := postgres.NewGormStripePaymentInfoRepository(db)
 	paymentIdempotencyRepo := postgres.NewGormPaymentIdempotencyRepository(db)
 	paymentSettlementRepo := postgres.NewGormPaymentSettlementRepository(db)
@@ -25,10 +23,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
-	grindService := services.NewGrindService(grindRepo, userRepo, taskRepo, participationRepo, messageRepo)
-	taskService := services.NewTaskService(taskRepo)
+	grindService := services.NewGrindService(grindRepo, userRepo, habitTaskRepo, participationRepo, messageRepo)
 	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
-	interviewService := services.NewInterviewService(interviewSessionRepo)
 	ingestService := services.NewIngestService(habitTaskRepo, completionEventRepo)
 	partnerGroupService := services.NewPartnerGroupService(partnerGroupRepo)
 	paymentFactory := services.NewPaymentServiceFactory(
@@ -59,9 +55,7 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	grindCtrl := NewGrindController(grindService, userService, messageService)
 	userCtrl := NewUserController(grindService, userService)
 	healthCtrl := NewHealthController()
-	taskCtrl := NewTaskController(taskService, grindService)
 	messageCtrl := NewMessageController(userService, messageService, grindService)
-	interviewCtrl := NewInterviewController(interviewService, userService, taskService)
 	paymentCtrl := NewPaymentController(userService, stripePaymentService, solanaPaymentService)
 	profileCtrl := NewProfileController(userService)
 	ingestCtrl := NewIngestController(ingestService)
@@ -80,13 +74,6 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 		v1.POST("login", userCtrl.LoginAPI)
 		v1.POST("logout", userCtrl.LogoutAPI)
 		v1.GET("verify-token", userCtrl.VerifyTokenAPI)
-		v1.POST("tasks/finish", taskCtrl.FinishTodayTaskAPI)
-		v1.GET("tasks/today", taskCtrl.GetTodayTaskAPI)
-		v1.GET("tasks/:id", taskCtrl.GetTaskAPI)
-		v1.POST("interviews/llm", interviewCtrl.LLMWebhookAPI)
-		v1.POST("interviews/start", interviewCtrl.StartInterviewAPI)
-		v1.POST("interviews/:id/response", interviewCtrl.SaveAgentResponseAPI)
-		v1.POST("interviews/:id/end", interviewCtrl.EndInterviewAPI)
 		// Stripe payment endpoints
 		v1.POST("payments/stripe/payment-intent", paymentCtrl.PaymentIntentAPI)
 		v1.POST("payments/methods", paymentCtrl.AddPaymentMethodAPI)

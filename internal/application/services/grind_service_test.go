@@ -17,7 +17,7 @@ func TestGrindServiceGetOngoingGrindByUserID_EndedGrind(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -27,7 +27,7 @@ func TestGrindServiceGetOngoingGrindByUserID_EndedGrind(t *testing.T) {
 		StartDate: time.Now().UTC().AddDate(0, 0, -10),
 	}, nil)
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 
 	_, err := svc.GetOngoingGrindByUserID(dto.GetOngoingGrindDTO{UserID: "u1"})
 	if !errors.Is(err, config.ErrNoOngoingGrind) {
@@ -40,13 +40,13 @@ func TestGrindServiceGetOngoingGrindByUserID_GrindNotFound(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
 	grindRepo.On("FindLatestByUserID", "u1").Return(nil, errors.New("missing"))
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 
 	_, err := svc.GetOngoingGrindByUserID(dto.GetOngoingGrindDTO{UserID: "u1"})
 	if !errors.Is(err, config.ErrGrindNotFound) {
@@ -59,7 +59,7 @@ func TestGrindServiceGetOngoingGrindByUserID_UserQuitted(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -70,7 +70,7 @@ func TestGrindServiceGetOngoingGrindByUserID_UserQuitted(t *testing.T) {
 	}, nil)
 	partRepo.On("FindByUserAndGrind", "u1", "g1").Return(&entities.Participation{UserID: "u1", GrindID: "g1", Quitted: true}, nil)
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 
 	_, err := svc.GetOngoingGrindByUserID(dto.GetOngoingGrindDTO{UserID: "u1"})
 	if !errors.Is(err, config.ErrUserNotParticipatingOrQuit) {
@@ -83,13 +83,13 @@ func TestGrindServiceAddParticipation_AlreadyExists(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
 	partRepo.On("FindByUserAndGrind", "u1", "g1").Return(&entities.Participation{ID: "p1", UserID: "u1", GrindID: "g1"}, nil)
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if err == nil {
 		t.Fatalf("expected already exists error, got nil")
@@ -101,14 +101,14 @@ func TestGrindServiceAddParticipation_UserNotFound(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
 	partRepo.On("FindByUserAndGrind", "u1", "g1").Return(nil, nil)
 	userRepo.On("FindById", "u1").Return(nil, errors.New("missing"))
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if !errors.Is(err, config.ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
@@ -120,7 +120,7 @@ func TestGrindServiceAddParticipation_GrindNotFound(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -128,7 +128,7 @@ func TestGrindServiceAddParticipation_GrindNotFound(t *testing.T) {
 	userRepo.On("FindById", "u1").Return(&entities.User{ID: "u1"}, nil)
 	grindRepo.On("FindById", "g1").Return(nil, errors.New("missing"))
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if !errors.Is(err, config.ErrGrindNotFound) {
 		t.Fatalf("expected ErrGrindNotFound, got %v", err)
@@ -140,7 +140,7 @@ func TestGrindServiceAddParticipation_CreateParticipationFailure(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -151,12 +151,12 @@ func TestGrindServiceAddParticipation_CreateParticipationFailure(t *testing.T) {
 		return p.UserID == "u1" && p.GrindID == "g1"
 	})).Return(errors.New("create failed"))
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if err == nil || err.Error() != "create failed" {
 		t.Fatalf("expected create failed, got %v", err)
 	}
-	taskRepo.AssertNotCalled(t, "Create", mock.Anything)
+	habitTaskRepo.AssertNotCalled(t, "Create", mock.Anything)
 }
 
 func TestGrindServiceAddParticipation_TaskCreateFailure(t *testing.T) {
@@ -164,7 +164,7 @@ func TestGrindServiceAddParticipation_TaskCreateFailure(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -172,14 +172,14 @@ func TestGrindServiceAddParticipation_TaskCreateFailure(t *testing.T) {
 	userRepo.On("FindById", "u1").Return(&entities.User{ID: "u1"}, nil)
 	partRepo.On("FindByUserAndGrind", "u1", "g1").Return(nil, nil)
 	partRepo.On("Create", mock.AnythingOfType("*entities.Participation")).Return(nil)
-	taskRepo.On("Create", mock.AnythingOfType("*entities.Task")).Return(errors.New("task create failed")).Once()
+	habitTaskRepo.On("Create", mock.AnythingOfType("*entities.HabitTask")).Return(errors.New("task create failed")).Once()
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if err == nil || err.Error() != "task create failed" {
 		t.Fatalf("expected task create failed, got %v", err)
 	}
-	taskRepo.AssertNumberOfCalls(t, "Create", 1)
+	habitTaskRepo.AssertNumberOfCalls(t, "Create", 1)
 }
 
 func TestGrindServiceAddParticipation_SuccessCreatesTasks(t *testing.T) {
@@ -189,7 +189,7 @@ func TestGrindServiceAddParticipation_SuccessCreatesTasks(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
@@ -199,17 +199,17 @@ func TestGrindServiceAddParticipation_SuccessCreatesTasks(t *testing.T) {
 	partRepo.On("Create", mock.MatchedBy(func(p *entities.Participation) bool {
 		return p.UserID == "u1" && p.GrindID == "g1"
 	})).Return(nil)
-	taskRepo.On("Create", mock.MatchedBy(func(t *entities.Task) bool {
+	habitTaskRepo.On("Create", mock.MatchedBy(func(t *entities.HabitTask) bool {
 		return t.UserID == "u1" && t.GrindID == "g1"
 	})).Return(nil)
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 
 	err := svc.AddParticipation(dto.AddParticipationDTO{UserID: "u1", GrindID: "g1"})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	taskRepo.AssertNumberOfCalls(t, "Create", 3)
+	habitTaskRepo.AssertNumberOfCalls(t, "Create", 3)
 }
 
 func TestGrindServiceDeleteGrind_TaskDeletionFailure(t *testing.T) {
@@ -217,13 +217,13 @@ func TestGrindServiceDeleteGrind_TaskDeletionFailure(t *testing.T) {
 
 	grindRepo := new(mocks.MockGrindRepository)
 	userRepo := new(mocks.MockUserRepository)
-	taskRepo := new(mocks.MockTaskRepository)
+	habitTaskRepo := new(mocks.MockHabitTaskRepository)
 	partRepo := new(mocks.MockParticipationRepository)
 	msgRepo := new(mocks.MockMessageRepository)
 
-	taskRepo.On("DeleteByGrindID", "g1").Return(errors.New("task delete fail"))
+	habitTaskRepo.On("DeleteByGrindID", "g1").Return(errors.New("task delete fail"))
 
-	svc := NewGrindService(grindRepo, userRepo, taskRepo, partRepo, msgRepo)
+	svc := NewGrindService(grindRepo, userRepo, habitTaskRepo, partRepo, msgRepo)
 
 	err := svc.DeleteGrind(dto.DeleteGrindDTO{GrindID: "g1"})
 	if err == nil || err.Error() != "task delete fail" {

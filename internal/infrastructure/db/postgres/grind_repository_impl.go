@@ -11,14 +11,14 @@ import (
 // GrindSchema is a private struct used only for GORM mapping (decoupling for Grind entity)
 type GrindSchema struct {
 	gorm.Model
-	ID           string          `json:"id" gorm:"primaryKey"`
-	Duration     int32           `json:"duration" gorm:"not null"` // stored in days
-	Participants []entities.User `json:"participants" gorm:"many2many:participate_records;foreignKey:ID;references:ID"`
-	Budget       int32           `json:"budget" gorm:"not null"`
-	Tasks        []entities.Task `json:"tasks" gorm:"-"` // Excluded from GORM - tasks are managed separately via TaskRepository
-	StartDate    time.Time       `json:"start_date" gorm:"not null"`
-	CreatedAt    time.Time       `json:"created_at" gorm:"not null"`
-	UpdatedAt    time.Time       `json:"updated_at" gorm:"not null"`
+	ID           string               `json:"id" gorm:"primaryKey"`
+	Duration     int32                `json:"duration" gorm:"not null"` // stored in days
+	Participants []entities.User      `json:"participants" gorm:"many2many:participate_records;foreignKey:ID;references:ID"`
+	Budget       int32                `json:"budget" gorm:"not null"`
+	Tasks        []entities.HabitTask `json:"tasks" gorm:"-"` // Excluded from GORM - tasks are managed separately via HabitTaskRepository
+	StartDate    time.Time            `json:"start_date" gorm:"not null"`
+	CreatedAt    time.Time            `json:"created_at" gorm:"not null"`
+	UpdatedAt    time.Time            `json:"updated_at" gorm:"not null"`
 }
 
 // TableName tells GORM which table to use

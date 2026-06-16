@@ -13,7 +13,7 @@ type Grind struct {
 	Duration       int32 // stored in days
 	Participants   []User
 	Budget         int32
-	Tasks          []Task
+	Tasks          []HabitTask
 	StartDate      time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -42,7 +42,7 @@ func NewGrind(duration int, budget int, startDate time.Time) (*Grind, error) {
 		Duration:     int32(duration),
 		Participants: []User{},
 		Budget:       int32(budget),
-		Tasks:        []Task{},
+		Tasks:        []HabitTask{},
 		StartDate:    startDate.UTC(),
 		CreatedAt:    now,
 		UpdatedAt:    now,

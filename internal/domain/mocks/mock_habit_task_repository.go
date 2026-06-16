@@ -44,6 +44,14 @@ func (m *MockHabitTaskRepository) Update(task *entities.HabitTask) error {
 	return args.Error(0)
 }
 
+func (m *MockHabitTaskRepository) FindByGrindIDAndParticipantID(grindID, participantID string) ([]entities.HabitTask, error) {
+	args := m.Called(grindID, participantID)
+	if args.Get(0) != nil {
+		return args.Get(0).([]entities.HabitTask), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *MockHabitTaskRepository) DeleteByGrindID(grindID string) error {
 	args := m.Called(grindID)
 	return args.Error(0)

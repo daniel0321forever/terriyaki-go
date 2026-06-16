@@ -14,9 +14,7 @@ var Repos *ReposContainer = nil
 type ReposContainer struct {
 	UserRepository               repositories.UserRepository
 	GrindRepository              repositories.GrindRepository
-	TaskRepository               repositories.TaskRepository
 	MessageRepository            repositories.MessageRepository
-	InterviewSessionRepository   repositories.InterviewSessionRepository
 	PaymentMethodInfoRepository  repositories.PaymentMethodInfoRepository
 	PaymentIdempotencyRepository repositories.PaymentIdempotencyRepository
 	PaymentSettlementRepository  repositories.PaymentSettlementRepository
@@ -28,9 +26,7 @@ func InitializeReposContainer(db *gorm.DB) error {
 		Repos = &ReposContainer{
 			UserRepository:               postgres.NewGormUserRepository(db),
 			GrindRepository:              postgres.NewGormGrindRepository(db),
-			TaskRepository:               postgres.NewGormTaskRepository(db),
 			MessageRepository:            postgres.NewGormMessageRepository(db),
-			InterviewSessionRepository:   postgres.NewGormInterviewSessionRepository(db),
 			PaymentMethodInfoRepository:  postgres.NewGormStripePaymentInfoRepository(db),
 			PaymentIdempotencyRepository: postgres.NewGormPaymentIdempotencyRepository(db),
 			PaymentSettlementRepository:  postgres.NewGormPaymentSettlementRepository(db),

@@ -112,6 +112,18 @@ func (r *GormHabitTaskRepository) Update(task *entities.HabitTask) error {
 	return r.db.WithContext(ctx).Model(&HabitTaskSchema{}).Where("id = ?", task.ID).Updates(&model).Error
 }
 
+func (r *GormHabitTaskRepository) FindByGrindIDAndParticipantID(grindID, participantID string) ([]entities.HabitTask, error) {
+	ptrs, err := r.FindByGrindIDAndUserID(grindID, participantID)
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]entities.HabitTask, len(ptrs))
+	for i, p := range ptrs {
+		tasks[i] = *p
+	}
+	return tasks, nil
+}
+
 func (r *GormHabitTaskRepository) DeleteByGrindID(grindID string) error {
 	ctx := context.Background()
 	return r.db.WithContext(ctx).Where("grind_id = ?", grindID).Delete(&HabitTaskSchema{}).Error

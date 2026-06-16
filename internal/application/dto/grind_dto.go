@@ -45,15 +45,15 @@ type QuitGrindDTO struct {
 
 // Output DTOs
 type GroupGrindDTO struct {
-	ID           string            `json:"id"`
-	Duration     int32             `json:"duration"`
-	Participants []UserDTO         `json:"participants"`
-	Budget       int32             `json:"budget"`
-	Progress     []TaskProgressDTO `json:"progress"`
-	StartDate    time.Time         `json:"startDate"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at,omitempty"`
-	TodayTask    *TaskDTO          `json:"taskToday,omitempty"`
+	ID           string                 `json:"id"`
+	Duration     int32                  `json:"duration"`
+	Participants []UserDTO              `json:"participants"`
+	Budget       int32                  `json:"budget"`
+	Progress     []HabitTaskProgressDTO `json:"progress"`
+	StartDate    time.Time              `json:"startDate"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at,omitempty"`
+	TodayTask    *HabitTaskDTO          `json:"taskToday,omitempty"`
 }
 
 // What is MessageGrindDTO?

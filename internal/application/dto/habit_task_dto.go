@@ -13,3 +13,11 @@ type HabitTaskDTO struct {
 	Completed    bool        `json:"completed"`
 	Metadata     interface{} `json:"metadata,omitempty"`
 }
+
+// HabitTaskProgressDTO is a compact view of a HabitTask for progress tracking.
+type HabitTaskProgressDTO struct {
+	ID           string     `json:"id"`
+	Date         time.Time  `json:"date"`
+	FinishedTime *time.Time `json:"finishedTime,omitempty"`
+	Status       string     `json:"status"` // "pending" | "completed" | "missed"
+}

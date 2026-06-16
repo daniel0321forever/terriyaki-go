@@ -8,7 +8,6 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
-	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"gorm.io/gorm"
 )
 
@@ -60,9 +59,9 @@ func (s *GrindService) CreateGroupGrind(request dto.CreateGrindDTO) (*dto.GroupG
 	var result *dto.GroupGrindDTO
 
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
-		grindRepo := s.grindRepo.(*postgres.GormGrindRepository).WithTx(tx)
-		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
-		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
+		grindRepo := getGrindRepo(s.grindRepo, tx)
+		partRepo := getParticipationRepo(s.participationRepo, tx)
+		habitTaskRepo := getHabitTaskRepo(s.habitTaskRepo, tx)
 
 		if err := grindRepo.Create(grind); err != nil {
 			return err
@@ -173,6 +172,10 @@ func (s *GrindService) UpdateGrind(request dto.UpdateGrindDTO) (*dto.GroupGrindD
 	if err != nil {
 		return nil, config.ErrGrindNotFound
 	}
+	_, err = s.participationRepo.FindByUserAndGrind(request.UserID, request.GrindID)
+	if err != nil {
+		return nil, config.ErrUserIsNotParticipant
+	}
 	grind.Duration = int32(request.Duration)
 	grind.Budget = int32(request.Budget)
 	if err := s.grindRepo.Update(grind); err != nil {
@@ -188,9 +191,9 @@ func (s *GrindService) UpdateGrind(request dto.UpdateGrindDTO) (*dto.GroupGrindD
 
 func (s *GrindService) DeleteGrind(request dto.DeleteGrindDTO) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
-		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
-		grindRepo := s.grindRepo.(*postgres.GormGrindRepository).WithTx(tx)
+		habitTaskRepo := getHabitTaskRepo(s.habitTaskRepo, tx)
+		partRepo := getParticipationRepo(s.participationRepo, tx)
+		grindRepo := getGrindRepo(s.grindRepo, tx)
 
 		if err := habitTaskRepo.DeleteByGrindID(request.GrindID); err != nil {
 			return err
@@ -225,8 +228,8 @@ func (s *GrindService) AddParticipation(request dto.AddParticipationDTO) error {
 
 	// Wrap only the writes in a transaction
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
-		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
+		partRepo := getParticipationRepo(s.participationRepo, tx)
+		habitTaskRepo := getHabitTaskRepo(s.habitTaskRepo, tx)
 
 		participation, err := entities.NewParticipation(user.ID, grind.ID)
 		if err != nil {
@@ -275,9 +278,9 @@ func (s *GrindService) AcceptInvitation(
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		partRepo := s.participationRepo.(*postgres.GormParticipationRepository).WithTx(tx)
-		habitTaskRepo := s.habitTaskRepo.(*postgres.GormHabitTaskRepository).WithTx(tx)
-		msgRepo := messageRepo.(*postgres.GormMessageRepository).WithTx(tx)
+		partRepo := getParticipationRepo(s.participationRepo, tx)
+		habitTaskRepo := getHabitTaskRepo(s.habitTaskRepo, tx)
+		msgRepo := getMessageRepo(messageRepo, tx)
 
 		// Create participation
 		participation, err := entities.NewParticipation(user.ID, grind.ID)
@@ -353,4 +356,40 @@ func (s *GrindService) QuitGrind(request dto.QuitGrindDTO) (*dto.ParticipationDT
 // MessageRepo returns the message repository for use in controller-level orchestration.
 func (s *GrindService) MessageRepo() repositories.MessageRepository {
 	return s.messageRepo
+}
+
+func getGrindRepo(r repositories.GrindRepository, tx *gorm.DB) repositories.GrindRepository {
+	if txRepo, ok := r.(interface {
+		WithTx(tx *gorm.DB) repositories.GrindRepository
+	}); ok {
+		return txRepo.WithTx(tx)
+	}
+	return r
+}
+
+func getParticipationRepo(r repositories.ParticipationRepository, tx *gorm.DB) repositories.ParticipationRepository {
+	if txRepo, ok := r.(interface {
+		WithTx(tx *gorm.DB) repositories.ParticipationRepository
+	}); ok {
+		return txRepo.WithTx(tx)
+	}
+	return r
+}
+
+func getHabitTaskRepo(r repositories.HabitTaskRepository, tx *gorm.DB) repositories.HabitTaskRepository {
+	if txRepo, ok := r.(interface {
+		WithTx(tx *gorm.DB) repositories.HabitTaskRepository
+	}); ok {
+		return txRepo.WithTx(tx)
+	}
+	return r
+}
+
+func getMessageRepo(r repositories.MessageRepository, tx *gorm.DB) repositories.MessageRepository {
+	if txRepo, ok := r.(interface {
+		WithTx(tx *gorm.DB) repositories.MessageRepository
+	}); ok {
+		return txRepo.WithTx(tx)
+	}
+	return r
 }

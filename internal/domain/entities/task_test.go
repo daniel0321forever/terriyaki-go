@@ -3,6 +3,8 @@ package entities
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTask(t *testing.T) {
@@ -10,12 +12,9 @@ func TestNewTask(t *testing.T) {
 
 	date := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)
 	task, err := NewTask("user-1", "grind-1", date)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if task == nil {
-		t.Fatalf("expected task, got nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, task)
+
 	if task.ID == "" {
 		t.Fatalf("expected non-empty task ID")
 	}

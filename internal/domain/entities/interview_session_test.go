@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewInterviewSession(t *testing.T) {
@@ -36,12 +38,8 @@ func TestNewInterviewSession(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if s == nil {
-				t.Fatalf("expected session, got nil")
-			}
+			require.NoError(t, err)
+			require.NotNil(t, s)
 			if s.ID == "" {
 				t.Fatalf("expected non-empty session ID")
 			}

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewGrind(t *testing.T) {
@@ -55,13 +57,8 @@ func TestNewGrind(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
-			if grind == nil {
-				t.Fatalf("expected grind, got nil")
-			}
+			require.NoError(t, err)
+			require.NotNil(t, grind)
 
 			if grind.ID == "" {
 				t.Fatalf("expected non-empty ID")

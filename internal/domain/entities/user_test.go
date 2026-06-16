@@ -3,6 +3,8 @@ package entities
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewUser(t *testing.T) {
@@ -73,12 +75,8 @@ func TestNewUser(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if user == nil {
-				t.Fatalf("expected user, got nil")
-			}
+			require.NoError(t, err)
+			require.NotNil(t, user)
 			if user.ID == "" {
 				t.Fatalf("expected non-empty user ID")
 			}

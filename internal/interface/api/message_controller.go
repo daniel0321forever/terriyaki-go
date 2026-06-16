@@ -249,7 +249,11 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 
 	// Get invitor user data from inviting message sender id
 	getUserDTO = dto.GetUserDTO{UserID: messageDTO.Sender.ID}
-	invitorDTO, _ := ctrl.userService.GetUser(getUserDTO)
+	invitorDTO, err := ctrl.userService.GetUser(getUserDTO)
+	if err != nil {
+		RespondNotFound(c, "invitor not found")
+		return
+	}
 
 	// Build DTOs for the atomic RejectInvitationTx call
 	updateMessageDTO := dto.UpdateMessageInvitationAcceptedStatusDTO{

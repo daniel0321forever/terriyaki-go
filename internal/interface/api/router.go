@@ -5,10 +5,11 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
-func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
+func RegisterRoutes(router *gin.Engine, db *gorm.DB, rdb *redis.Client) {
 	// Initialize repositories
 	userRepo := postgres.NewGormUserRepository(db)
 	grindRepo := postgres.NewGormGrindRepository(db)
@@ -23,8 +24,8 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
-	grindService := services.NewGrindService(grindRepo, userRepo, habitTaskRepo, participationRepo, messageRepo)
-	messageService := services.NewMessageService(messageRepo, userRepo, grindRepo)
+	grindService := services.NewGrindService(db, grindRepo, userRepo, habitTaskRepo, participationRepo, messageRepo)
+	messageService := services.NewMessageService(db, messageRepo, userRepo, grindRepo)
 	ingestService := services.NewIngestService(habitTaskRepo, completionEventRepo)
 	partnerGroupService := services.NewPartnerGroupService(partnerGroupRepo)
 	paymentFactory := services.NewPaymentServiceFactory(
@@ -54,53 +55,60 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	// Initialize API handlers with services
 	grindCtrl := NewGrindController(grindService, userService, messageService)
 	userCtrl := NewUserController(grindService, userService)
-	healthCtrl := NewHealthController()
+	healthCtrl := NewHealthController(db, rdb)
 	messageCtrl := NewMessageController(userService, messageService, grindService)
 	paymentCtrl := NewPaymentController(userService, stripePaymentService, solanaPaymentService)
 	profileCtrl := NewProfileController(userService)
 	ingestCtrl := NewIngestController(ingestService)
 	partnerGroupCtrl := NewPartnerGroupController(partnerGroupService)
 
-	// define routes
-	v1 := router.Group("/api/v1")
-	{
-		v1.POST("grinds", grindCtrl.CreateGrindAPI)
-		v1.GET("grinds", grindCtrl.GetAllUserGrindsAPI)
-		v1.DELETE("grinds/delete-all", grindCtrl.DeleteAllGrindsAPI)
-		v1.GET("grinds/current", grindCtrl.GetUserCurrentGrindAPI)
-		v1.GET("grinds/:id", grindCtrl.GetGrindAPI)
-		v1.GET("ping", healthCtrl.PingAPI)
-		v1.POST("register", userCtrl.RegisterAPI)
-		v1.POST("login", userCtrl.LoginAPI)
-		v1.POST("logout", userCtrl.LogoutAPI)
-		v1.GET("verify-token", userCtrl.VerifyTokenAPI)
-		// Stripe payment endpoints
-		v1.POST("payments/stripe/payment-intent", paymentCtrl.PaymentIntentAPI)
-		v1.POST("payments/methods", paymentCtrl.AddPaymentMethodAPI)
-		v1.POST("payments/stripe/force-charging", paymentCtrl.ForceInvestigateDuedPenaltyAPI)
-		v1.GET("payments/stripe/methods", paymentCtrl.GetAvailablePaymentMethodsAPI)
-		v1.POST("payments/stripe/methods/select-default", paymentCtrl.SelectPaymentMethodAPI)
-		// Solana payment endpoints
-		v1.POST("payments/solana/collection-intent", paymentCtrl.CreateSolanaCollectionIntentAPI)
-		v1.POST("payments/solana/submit-signed-transaction", paymentCtrl.SubmitSolanaSignedTransactionAPI)
-		v1.GET("users/exists", userCtrl.CheckUserExistsAPI)
-		v1.PATCH("users/update-profile", profileCtrl.UpdateProfileAPI)
-		v1.GET("messages", messageCtrl.GetMessageAPI)
-		v1.POST("messages/invitation", messageCtrl.CreateInvitationAPI)
-		v1.POST("messages/:id/invitation/accept", messageCtrl.AcceptInvitationAPI)
-		v1.POST("messages/:id/invitation/reject", messageCtrl.RejectInvitationAPI)
-		v1.GET("messages/sent", messageCtrl.GetSentMessageAPI)
-		v1.POST("messages/:id/read", messageCtrl.ReadMessageAPI)
-	}
+	// Health check on root router (unversioned, per D-04)
+	router.GET("/api/health", healthCtrl.HealthAPI)
 
 	v2 := router.Group("/api/v2")
 	{
+		// Auth routes (v2 handlers win per D-02)
 		v2.POST("login", userCtrl.LoginAPIV2)
 		v2.GET("verify-token", userCtrl.VerifyTokenAPIV2)
+
+		// Register static grind paths BEFORE dynamic :id
+		v2.POST("grinds", grindCtrl.CreateGrindAPI)
+		v2.GET("grinds", grindCtrl.GetAllUserGrindsAPI)
+		v2.DELETE("grinds/delete-all", grindCtrl.DeleteAllGrindsAPI)
+		v2.GET("grinds/current", grindCtrl.GetUserCurrentGrindAPI) // static BEFORE grinds/:id
+		v2.GET("grinds/:id", grindCtrl.GetGrindAPI)
 		v2.POST("grinds/:id/quit", grindCtrl.QuitGrindAPI)
+
+		// User routes
+		v2.POST("register", userCtrl.RegisterAPI)
+		v2.POST("logout", userCtrl.LogoutAPI)
+		v2.GET("users/exists", userCtrl.CheckUserExistsAPI)
+		v2.PATCH("users/update-profile", profileCtrl.UpdateProfileAPI)
+
+		// Payment routes (Stripe)
+		v2.POST("payments/stripe/payment-intent", paymentCtrl.PaymentIntentAPI)
+		v2.POST("payments/methods", paymentCtrl.AddPaymentMethodAPI)
+		v2.POST("payments/stripe/force-charging", paymentCtrl.ForceInvestigateDuedPenaltyAPI)
+		v2.GET("payments/stripe/methods", paymentCtrl.GetAvailablePaymentMethodsAPI)
+		v2.POST("payments/stripe/methods/select-default", paymentCtrl.SelectPaymentMethodAPI)
+
+		// Payment routes (Solana)
+		v2.POST("payments/solana/collection-intent", paymentCtrl.CreateSolanaCollectionIntentAPI)
+		v2.POST("payments/solana/submit-signed-transaction", paymentCtrl.SubmitSolanaSignedTransactionAPI)
+
+		// Message routes — register static paths BEFORE dynamic :id
+		v2.GET("messages", messageCtrl.GetMessageAPI)
+		v2.POST("messages/invitation", messageCtrl.CreateInvitationAPI) // static BEFORE messages/:id
+		v2.GET("messages/sent", messageCtrl.GetSentMessageAPI)          // static BEFORE messages/:id
+		v2.POST("messages/:id/invitation/accept", messageCtrl.AcceptInvitationAPI)
+		v2.POST("messages/:id/invitation/reject", messageCtrl.RejectInvitationAPI)
+		v2.POST("messages/:id/read", messageCtrl.ReadMessageAPI)
+
+		// Ingest
 		v2.POST("ingest/:provider", ingestCtrl.HandleIngest)
+
+		// Partner groups — register static POST groups/join BEFORE dynamic GET groups/:id
 		v2.POST("groups", partnerGroupCtrl.CreateGroupAPI)
-		// Register static POST groups/join BEFORE dynamic GET groups/:id to avoid Gin wildcard conflict.
 		v2.POST("groups/join", partnerGroupCtrl.JoinGroupAPI)
 		v2.GET("groups/:id", partnerGroupCtrl.GetGroupAPI)
 		v2.POST("groups/:id/invite", partnerGroupCtrl.GenerateInviteLinkAPI)

@@ -1,6 +1,5 @@
-// Package mcp defines stub tool schemas for MCP (Model Context Protocol) integration.
-// These tool definitions are ready to be registered with an MCP server in Phase 4.
-// No server, no transport, no main.go wiring in Phase 3 (D-08).
+// Package mcp defines MCP (Model Context Protocol) tool schemas for Habitat.
+// Tool definitions live alongside their handlers so the interface layer is self-contained.
 package mcp
 
 import (

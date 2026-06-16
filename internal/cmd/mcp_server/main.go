@@ -22,7 +22,7 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/infrastructure/db/postgres"
-	mcpmux "github.com/daniel0321forever/terriyaki-go/mcp"
+	mcpmux "github.com/daniel0321forever/terriyaki-go/internal/interface/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/redis/go-redis/v9"
 )
@@ -45,8 +45,6 @@ func main() {
 	_ = rdb // retained for future MCP tools that need Redis; not used by current handlers
 
 	// Construct only the repositories required by the two MCP tools.
-	// (The full container.InitializeReposContainer is omitted — MCP binary needs
-	// only the ingest subset.)
 	habitTaskRepo := postgres.NewGormHabitTaskRepository(db)
 	completionEventRepo := postgres.NewGormCompletionEventRepository(db)
 
@@ -59,7 +57,6 @@ func main() {
 	s.AddTool(mcpmux.VerifyHabitTaskTool, mcpmux.HandleVerifyHabitTask(habitTaskRepo, completionEventRepo))
 
 	// Serve on stdio transport — blocks until the process exits.
-	// Claude CLI / Claude Desktop communicates via JSON-RPC over stdin/stdout.
 	if err := mcpserver.ServeStdio(s); err != nil {
 		panic(err)
 	}

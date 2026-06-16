@@ -74,7 +74,7 @@ func TestSolanaE2E(t *testing.T) {
 	// 1) register user
 	username := fmt.Sprintf("e2e-%d", time.Now().UnixNano())
 	regBody := map[string]string{"username": username, "email": username + "@example.com", "password": "password"}
-	resp, body := httpPostJSON(t, base+"/api/v1/register", regBody, nil)
+	resp, body := httpPostJSON(t, base+"/api/v2/register", regBody, nil)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("register returned status %d body=%s", resp.StatusCode, string(body))
 	}
@@ -95,7 +95,7 @@ func TestSolanaE2E(t *testing.T) {
 		"program_id":     programID.String(),
 	}
 	headers := map[string]string{"Authorization": "Bearer " + token}
-	resp, body = httpPostJSON(t, base+"/api/v1/payments/methods", addBody, headers)
+	resp, body = httpPostJSON(t, base+"/api/v2/payments/methods", addBody, headers)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add payment method failed status=%d body=%s", resp.StatusCode, string(body))
 	}
@@ -121,7 +121,7 @@ func TestSolanaE2E(t *testing.T) {
 	}
 	idemp := fmt.Sprintf("e2e-collection-%d", time.Now().UnixNano())
 	headers["Idempotency-Key"] = idemp
-	resp, body = httpPostJSON(t, base+"/api/v1/payments/solana/collection-intent", intentBody, headers)
+	resp, body = httpPostJSON(t, base+"/api/v2/payments/solana/collection-intent", intentBody, headers)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("collection intent failed status=%d body=%s", resp.StatusCode, string(body))
 	}
@@ -204,7 +204,7 @@ func TestSolanaE2E(t *testing.T) {
 		"network":                   "localnet",
 	}
 	headers["Idempotency-Key"] = idemp
-	resp, body = httpPostJSON(t, base+"/api/v1/payments/solana/submit-signed-transaction", submitBody, headers)
+	resp, body = httpPostJSON(t, base+"/api/v2/payments/solana/submit-signed-transaction", submitBody, headers)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("submit signed tx failed status=%d body=%s", resp.StatusCode, string(body))
 	}

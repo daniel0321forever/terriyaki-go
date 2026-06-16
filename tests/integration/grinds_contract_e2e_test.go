@@ -24,7 +24,7 @@ func registerGrindTestUser(t *testing.T) (string, string) {
 		"avatar":   "",
 	}
 
-	_, writer := testharness.MakeRequest(http.MethodPost, "/api/v1/register", requestBody, "")
+	_, writer := testharness.MakeRequest(http.MethodPost, "/api/v2/register", requestBody, "")
 	assert.Equal(t, http.StatusOK, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -66,7 +66,7 @@ func TestGrindCreateUnauthorized(t *testing.T) {
 		"startDate": time.Now().UTC().Format(time.RFC3339),
 	}
 
-	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v1/grinds", requestBody, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodPost, "/api/v2/grinds", requestBody, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -80,7 +80,7 @@ func TestGrindCreateSuccess(t *testing.T) {
 }
 
 func TestGrindListUnauthorized(t *testing.T) {
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/grinds", nil, "invalid-token")
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v2/grinds", nil, "invalid-token")
 	assert.Equal(t, http.StatusUnauthorized, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -93,7 +93,7 @@ func TestGrindListSuccess(t *testing.T) {
 	token, userID := registerGrindTestUser(t)
 	createdGrindID := seedGrindData(t, userID)
 
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/grinds", nil, token)
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v2/grinds", nil, token)
 	assert.Equal(t, http.StatusOK, writer.Code)
 
 	var grinds []map[string]interface{}
@@ -119,7 +119,7 @@ func TestGrindCurrentSuccess(t *testing.T) {
 	token, userID := registerGrindTestUser(t)
 	createdGrindID := seedGrindData(t, userID)
 
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/grinds/current", nil, token)
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v2/grinds/current", nil, token)
 	assert.Equal(t, http.StatusOK, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())
@@ -134,7 +134,7 @@ func TestGrindByIDSuccess(t *testing.T) {
 	token, userID := registerGrindTestUser(t)
 	createdGrindID := seedGrindData(t, userID)
 
-	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v1/grinds/"+createdGrindID, nil, token)
+	request, writer := testharness.MakeRequest(http.MethodGet, "/api/v2/grinds/"+createdGrindID, nil, token)
 	assert.Equal(t, http.StatusOK, writer.Code)
 
 	resp := testharness.ParseResponseMap(t, writer.Body.Bytes())

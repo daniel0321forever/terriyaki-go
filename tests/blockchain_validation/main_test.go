@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 	// wait for server to become ready
 	ready := false
 	for i := 0; i < 20; i++ {
-		resp, err := http.Get("http://localhost:8080/api/v1/ping")
+		resp, err := http.Get("http://localhost:8080/api/health")
 		if err == nil && resp.StatusCode == 200 {
 			ready = true
 			break

@@ -8,16 +8,19 @@ import (
 	"github.com/daniel0321forever/terriyaki-go/internal/application/mappers"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/entities"
 	"github.com/daniel0321forever/terriyaki-go/internal/domain/repositories"
+	"gorm.io/gorm"
 )
 
 type MessageService struct {
+	db          *gorm.DB
 	messageRepo repositories.MessageRepository
 	userRepo    repositories.UserRepository
 	grindRepo   repositories.GrindRepository
 }
 
-func NewMessageService(messageRepo repositories.MessageRepository, userRepo repositories.UserRepository, grindRepo repositories.GrindRepository) *MessageService {
+func NewMessageService(db *gorm.DB, messageRepo repositories.MessageRepository, userRepo repositories.UserRepository, grindRepo repositories.GrindRepository) *MessageService {
 	return &MessageService{
+		db:          db,
 		messageRepo: messageRepo,
 		userRepo:    userRepo,
 		grindRepo:   grindRepo,
@@ -195,4 +198,42 @@ func (s *MessageService) GetAllMessageFromSender(senderID string, offset, limit 
 		output = append(output, messageDTO)
 	}
 	return output, nil
+}
+
+// RejectInvitationTx executes UpdateMessageInvitationAcceptedStatus and CreateInvitationRejectedMessage
+// atomically in a single DB transaction.
+func (s *MessageService) RejectInvitationTx(
+	updateReq dto.UpdateMessageInvitationAcceptedStatusDTO,
+	createReq dto.CreateInvitationRejectedMessageDTO,
+) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		msgRepo := getMessageRepo(s.messageRepo, tx)
+
+		// Update original invitation message to rejected
+		msg, err := msgRepo.FindByID(updateReq.MessageID)
+		if err != nil {
+			return err
+		}
+		msg.InvitationAccepted = false
+		msg.InvitationRejected = true
+		msg.UpdatedAt = time.Now().UTC()
+		if err := msgRepo.Update(msg); err != nil {
+			return err
+		}
+
+		// Create rejection notification message to invitor
+		rejectedMsg, err := entities.NewMessage(
+			createReq.RejecterID,
+			createReq.InvitorID,
+			createReq.RejecterID+" rejected your invitation",
+			"invitation_rejected",
+			createReq.GrindID,
+			false,
+			true,
+		)
+		if err != nil {
+			return err
+		}
+		return msgRepo.Create(rejectedMsg)
+	})
 }

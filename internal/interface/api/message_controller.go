@@ -207,7 +207,7 @@ func (ctrl *MessageController) AcceptInvitationAPI(c *gin.Context) {
 	}
 
 	// Get grind for response
-	getGrindDTO := dto.GetGrindDTO{GrindID: grindID}
+	getGrindDTO := dto.GetGrindDTO{GrindID: grindID, UserID: userID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
 		RespondInternalServerError(c, "internal server error")
@@ -280,7 +280,7 @@ func (ctrl *MessageController) RejectInvitationAPI(c *gin.Context) {
 	}
 
 	// Get grind for response
-	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrind.ID}
+	getGrindDTO := dto.GetGrindDTO{GrindID: messageDTO.InvitationGrind.ID, UserID: userID}
 	grindDTO, err := ctrl.grindService.GetGrind(getGrindDTO)
 	if err != nil {
 		RespondInternalServerError(c, "internal server error")

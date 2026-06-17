@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/daniel0321forever/terriyaki-go/internal/application/dto"
 	"github.com/daniel0321forever/terriyaki-go/internal/application/services"
+	"github.com/daniel0321forever/terriyaki-go/internal/cores/config"
 	"github.com/daniel0321forever/terriyaki-go/internal/cores/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -259,6 +261,10 @@ func (ctrl *GrindController) UpdateGrindAPI(c *gin.Context) {
 	grind, err := ctrl.grindService.UpdateGrind(updateGrindDTO)
 	if err != nil {
 		fmt.Println(err)
+		if errors.Is(err, config.ErrUserIsNotParticipant) {
+			RespondForbidden(c, "user is not a participant of this grind")
+			return
+		}
 		RespondInternalServerError(c, "internal server error")
 		return
 	}
